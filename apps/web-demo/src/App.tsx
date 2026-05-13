@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { MockASRProvider } from 'asr-browser';
+import {
+  BrowserASRProvider,
+  createAudioInputFromFile as decodeAudioFileToInput,
+  MockASRProvider
+} from 'asr-browser';
 import { Pipeline } from 'core';
 import {
+  type ASRProvider,
   DEFAULT_USER_SETTINGS,
   type AudioInput,
   type SubtitleSegment,
@@ -13,7 +18,11 @@ import { MockTranslator, OpenAICompatibleTranslator } from 'translator';
 import { AudioUploader } from './components/AudioUploader';
 import { DebugPanel } from './components/DebugPanel';
 import { LanguageSelector } from './components/LanguageSelector';
-import { SettingsPanel, type TranslationMode } from './components/SettingsPanel';
+import {
+  SettingsPanel,
+  type ASRMode,
+  type TranslationMode
+} from './components/SettingsPanel';
 import { SubtitlePreview } from './components/SubtitlePreview';
 
 class ErrorReportingTranslator implements TranslatorProvider {
@@ -36,22 +45,47 @@ class ErrorReportingTranslator implements TranslatorProvider {
   }
 }
 
-export default function App() {
+interface AppProps {
+  createAudioInputFromFile?: (file: File) => Promise<AudioInput>;
+  createBrowserAsrProvider?: () => ASRProvider;
+  createMockAsrProvider?: () => ASRProvider;
+}
+
+export default function App({
+  createAudioInputFromFile = decodeAudioFileToInput,
+  createBrowserAsrProvider = () => new BrowserASRProvider(),
+  createMockAsrProvider = () => new MockASRProvider()
+}: AppProps) {
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_USER_SETTINGS);
+  const [asrMode, setAsrMode] = useState<ASRMode>('mock');
   const [mode, setMode] = useState<TranslationMode>('mock');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedFileName, setSelectedFileName] = useState<string>('');
   const [segment, setSegment] = useState<SubtitleSegment | null>(null);
   const [status, setStatus] = useState<'idle' | 'running' | 'done'>('idle');
   const [lastError, setLastError] = useState<string>('');
-  const asrProviderRef = useRef(new MockASRProvider());
+  const asrProviderRef = useRef<ASRProvider | null>(null);
+  const asrProviderInitRef = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
-    void asrProviderRef.current.init();
+    const provider = asrMode === 'mock' ? createMockAsrProvider() : createBrowserAsrProvider();
+    asrProviderRef.current = provider;
+    const initPromise = provider.init();
+    asrProviderInitRef.current = initPromise;
+
+    void initPromise.catch((error) => {
+      setLastError(error instanceof Error ? error.message : 'Failed to initialize ASR provider.');
+    });
 
     return () => {
-      void asrProviderRef.current.dispose();
+      if (asrProviderRef.current === provider) {
+        asrProviderRef.current = null;
+      }
+
+      asrProviderInitRef.current = Promise.resolve();
+      void provider.dispose();
     };
-  }, []);
+  }, [asrMode, createBrowserAsrProvider, createMockAsrProvider]);
 
   function buildTranslatorProvider(): ErrorReportingTranslator {
     if (mode === 'mock') {
@@ -67,38 +101,83 @@ export default function App() {
     );
   }
 
-  async function runTranslation() {
-    setStatus('running');
-    setLastError('');
+  async function buildAudioInput(): Promise<AudioInput> {
+    if (asrMode === 'browser') {
+      if (!selectedFile) {
+        throw new Error('Select an audio file before running Browser ASR mode.');
+      }
 
-    const audioInput: AudioInput = {
+      return await createAudioInputFromFile(selectedFile);
+    }
+
+    return {
       id: selectedFileName || 'mock-audio',
       data: new Float32Array(),
       sampleRate: 16_000,
       durationMs: 1_000
     };
+  }
 
-    const translatorProvider = buildTranslatorProvider();
-    const pipeline = new Pipeline({
-      asrProvider: asrProviderRef.current,
-      translatorProvider
-    });
+  async function runTranslation() {
+    setStatus('running');
+    setLastError('');
 
-    const nextSegment = await pipeline.process(audioInput, settings);
-    setSegment(nextSegment);
-    setLastError(translatorProvider.lastError);
-    setStatus('done');
+    try {
+      const audioInput = await buildAudioInput();
+      const asrProvider = asrProviderRef.current;
+
+      if (!asrProvider) {
+        throw new Error('ASR provider is not ready.');
+      }
+
+      await asrProviderInitRef.current;
+
+      const translatorProvider = buildTranslatorProvider();
+      const pipeline = new Pipeline({
+        asrProvider,
+        translatorProvider
+      });
+
+      const nextSegment = await pipeline.process(audioInput, settings);
+      setSegment(nextSegment);
+      setLastError(translatorProvider.lastError);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      setLastError(message);
+      setSegment((currentSegment) =>
+        currentSegment ?? {
+          id: selectedFileName || 'browser-audio',
+          source: '',
+          translated: '',
+          sourceLang: settings.sourceLang,
+          targetLang: settings.targetLang,
+          createdAt: Date.now(),
+          status: 'error'
+        }
+      );
+    } finally {
+      setStatus('done');
+    }
   }
 
   return (
     <main style={{ fontFamily: 'sans-serif', margin: '0 auto', maxWidth: 960, padding: 24 }}>
       <h1>Browser Live Translator Web Demo</h1>
-      <p>Phase 1 mock mode and Phase 2 OpenAI-compatible mode are both available in this demo.</p>
+      <p>Debug mode supports mock and real provider combinations for both ASR and translation.</p>
       <LanguageSelector settings={settings} onChange={setSettings} />
-      <AudioUploader selectedFileName={selectedFileName} onSelectFileName={setSelectedFileName} />
+      <AudioUploader
+        selectedFile={selectedFile}
+        selectedFileName={selectedFileName}
+        onSelectFile={(file) => {
+          setSelectedFile(file);
+          setSelectedFileName(file?.name ?? '');
+        }}
+      />
       <SettingsPanel
+        asrMode={asrMode}
         mode={mode}
         settings={settings}
+        onAsrModeChange={setAsrMode}
         onModeChange={setMode}
         onChange={setSettings}
       />
@@ -111,9 +190,15 @@ export default function App() {
         targetLang={settings.targetLang}
         lastAsrText={segment?.source ?? ''}
         lastTranslatedText={segment?.translated ?? ''}
-        audioCaptureState={selectedFileName ? `selected: ${selectedFileName}` : 'mock-audio'}
+        audioCaptureState={
+          asrMode === 'browser'
+            ? selectedFileName
+              ? `selected: ${selectedFileName}`
+              : 'awaiting uploaded audio'
+            : 'mock-audio'
+        }
         lastError={lastError}
-        asrProvider="MockASRProvider"
+        asrProvider={asrMode === 'mock' ? 'MockASRProvider' : 'BrowserASRProvider'}
         translatorProvider={
           mode === 'mock' ? 'MockTranslator' : 'OpenAICompatibleTranslator'
         }

@@ -417,3 +417,83 @@ Notes / Remaining work:
 ```
 
 Do not claim that manual browser behavior was verified unless it was actually tested.
+
+---
+
+## 11. Multi-Mode Debug and Release Policy
+
+The repository keeps both mock and real providers during debug and validation stages.
+
+### 11.1 Debug-stage provider policy
+
+During web-demo and integration debugging, the project may expose explicit mode selection for both ASR and Translator providers.
+
+Allowed provider modes:
+
+- ASR:
+  - `MockASRProvider`
+  - `BrowserASRProvider`
+
+- Translator:
+  - `MockTranslator`
+  - `OpenAICompatibleTranslator`
+
+Agents may implement explicit mode selection in debug-stage UI when needed to validate phase boundaries, isolate failures, or compare provider behavior.
+
+This creates four valid debug-stage combinations:
+
+- Mock ASR + Mock Translator
+- Mock ASR + OpenAI-compatible Translator
+- Browser ASR + Mock Translator
+- Browser ASR + OpenAI-compatible Translator
+
+The purpose of these combinations is validation and fault isolation only.
+They must not expand product scope beyond the MVP defined in `target.md`.
+
+### 11.2 Isolation requirements
+
+When multiple modes exist:
+
+1. Provider selection must remain explicit.
+2. Provider composition must still go through the shared provider interfaces.
+3. `Pipeline` must continue to receive providers through dependency injection.
+4. Mock and real providers must remain swappable without changing pipeline internals.
+5. Mock providers must stay usable for tests and regression checks.
+6. API keys must only be required when the real translator mode is selected.
+7. No mock-only behavior may leak into the final production extension runtime unless explicitly enabled for development.
+
+### 11.3 Phase interpretation rule
+
+If a later phase introduces a real provider that would otherwise replace a mock provider from an earlier phase, agents must preserve the earlier mock provider path when the user explicitly requests continued debug comparability.
+
+In that case:
+
+- phase validation may be satisfied by adding selectable provider modes rather than deleting the earlier mock path
+- agents must report any resulting UI or architecture complexity before implementation if the change affects current phase boundaries
+
+### 11.4 Release branch cleanup rule
+
+Before final MVP release, extension-focused delivery must produce a clean real-provider branch or equivalent clean copy.
+
+Release-cleanup requirements:
+
+1. Remove debug-only mock selection from the production extension path.
+2. Remove test-only mock runtime wiring from the production extension path.
+3. Keep only the real MVP chain for shipped extension behavior:
+   - browser tab audio
+   - real browser ASR
+   - real OpenAI-compatible translator
+   - real subtitle overlay
+4. Mock providers may remain in the repository for tests and development, but must not remain user-selectable in the production extension build unless the user explicitly requests a development build.
+5. When this cleanup is performed, agents should create either:
+   - a dedicated branch for release cleanup, or
+   - a separate clean copy, if the user explicitly requests that workflow
+
+### 11.5 Conflict rule
+
+If an existing phase description conflicts with the debug-stage multi-mode policy above, agents must stop and ask the user whether to prioritize:
+
+- strict single-path phase replacement, or
+- debug-stage multi-mode preservation
+
+Do not resolve that conflict silently.

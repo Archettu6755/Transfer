@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@huggingface/transformers": "^3.7.6",
     "shared": "workspace:*"
   }
 }

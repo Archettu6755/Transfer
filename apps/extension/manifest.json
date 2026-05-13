@@ -1,5 +1,22 @@
 {
   "manifest_version": 3,
   "name": "browser-live-translator",
-  "version": "0.0.0"
+  "version": "0.0.0",
+  "action": {
+    "default_popup": "src/popup/popup.html"
+  },
+  "options_page": "src/options/options.html",
+  "background": {
+    "service_worker": "src/background/serviceWorker.js",
+    "type": "module"
+  },
+  "permissions": ["storage", "tabs"],
+  "host_permissions": ["<all_urls>"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/contentScript.js"],
+      "run_at": "document_idle"
+    }
+  ]
 }

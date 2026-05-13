@@ -93,6 +93,7 @@ The web demo should include:
 - Target language selector
 - Audio file uploader
 - LLM settings form
+- Provider preset selector for OpenAI-compatible endpoints
 - Subtitle preview
 - Debug panel
 
@@ -136,6 +137,7 @@ The Options page must allow the user to configure:
 
 - Source language: `zh`, `en`, `ja`
 - Target language: `zh-CN`, `en`
+- Provider preset for supported OpenAI-compatible services
 - API Base URL
 - API Key
 - Model Name
@@ -153,7 +155,7 @@ Settings must persist locally.
 
 The product uses OpenAI-compatible Chat Completions.
 
-The user provides:
+The user must always be able to provide:
 
 ```text
 API Base URL
@@ -161,9 +163,19 @@ API Key
 Model Name
 ```
 
+To simplify setup, the product may also provide a small set of provider presets for known OpenAI-compatible services.
+
+Preset behavior:
+
+- Selecting a preset may automatically fill a recommended API Base URL.
+- Selecting a preset may automatically fill a recommended default Model Name.
+- The user must still provide their own API Key.
+- The user must always be able to switch to a Custom preset and manually edit Base URL and Model Name.
+
 The product must not hardcode provider-specific credentials.
 
 The product should work with any endpoint that follows the expected OpenAI-compatible request/response shape.
+Provider presets are a convenience layer only and must not remove support for custom OpenAI-compatible endpoints.
 
 ---
 
@@ -260,7 +272,7 @@ The first product milestone is only to prove the browser-native livestream trans
 The MVP is complete when:
 
 1. The extension can be loaded into Chrome.
-2. The user can configure source language, target language, API Base URL, API Key, and Model Name.
+2. The user can configure source language, target language, API Base URL, API Key, and Model Name, either manually or through a provider preset that auto-fills recommended values.
 3. The user can open a Twitch or YouTube livestream and click Start.
 4. The extension captures current tab audio.
 5. Browser-side ASR produces source-language text.

@@ -86,6 +86,7 @@ vtuber-live-translator/
       package.json
       src/
         language.ts
+        providerPreset.ts
         audio.ts
         asr.ts
         translation.ts

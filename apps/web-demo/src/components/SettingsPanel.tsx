@@ -1,18 +1,39 @@
 import type { UserSettings } from 'shared';
 
+export type ASRMode = 'mock' | 'browser';
 export type TranslationMode = 'mock' | 'openai-compatible';
 
 interface SettingsPanelProps {
+  asrMode: ASRMode;
   mode: TranslationMode;
   settings: UserSettings;
+  onAsrModeChange: (mode: ASRMode) => void;
   onModeChange: (mode: TranslationMode) => void;
   onChange: (settings: UserSettings) => void;
 }
 
-export function SettingsPanel({ mode, settings, onModeChange, onChange }: SettingsPanelProps) {
+export function SettingsPanel({
+  asrMode,
+  mode,
+  settings,
+  onAsrModeChange,
+  onModeChange,
+  onChange
+}: SettingsPanelProps) {
   return (
     <section>
-      <h2>Translation Settings</h2>
+      <h2>Provider Settings</h2>
+      <label>
+        ASR Mode
+        <select
+          aria-label="ASR Mode"
+          onChange={(event) => onAsrModeChange(event.target.value as ASRMode)}
+          value={asrMode}
+        >
+          <option value="mock">Mock ASR</option>
+          <option value="browser">Browser ASR</option>
+        </select>
+      </label>
       <label>
         Translation Mode
         <select
@@ -25,39 +46,44 @@ export function SettingsPanel({ mode, settings, onModeChange, onChange }: Settin
         </select>
       </label>
       <p>
+        {asrMode === 'browser'
+          ? 'Browser ASR requires an uploaded audio file and runs the selected model in a worker.'
+          : 'Mock ASR keeps speech recognition offline and deterministic for regression checks.'}
+      </p>
+      <p>
         {mode === 'mock'
-          ? 'Mock mode keeps the demo offline and does not require an API key.'
-          : 'OpenAI-compatible mode requires your Base URL, API Key, and Model Name.'}
+          ? 'Mock translation keeps the demo offline and does not require an API key.'
+          : 'OpenAI-compatible translation requires your Base URL, API Key, and Model Name.'}
       </p>
       {mode === 'openai-compatible' ? (
         <>
-      <label>
-        API Base URL
-        <input
-          aria-label="API Base URL"
-          onChange={(event) => onChange({ ...settings, apiBaseUrl: event.target.value })}
-          type="text"
-          value={settings.apiBaseUrl}
-        />
-      </label>
-      <label>
-        API Key
-        <input
-          aria-label="API Key"
-          onChange={(event) => onChange({ ...settings, apiKey: event.target.value })}
-          type="password"
-          value={settings.apiKey}
-        />
-      </label>
-      <label>
-        Model Name
-        <input
-          aria-label="Model Name"
-          onChange={(event) => onChange({ ...settings, modelName: event.target.value })}
-          type="text"
-          value={settings.modelName}
-        />
-      </label>
+          <label>
+            API Base URL
+            <input
+              aria-label="API Base URL"
+              onChange={(event) => onChange({ ...settings, apiBaseUrl: event.target.value })}
+              type="text"
+              value={settings.apiBaseUrl}
+            />
+          </label>
+          <label>
+            API Key
+            <input
+              aria-label="API Key"
+              onChange={(event) => onChange({ ...settings, apiKey: event.target.value })}
+              type="password"
+              value={settings.apiKey}
+            />
+          </label>
+          <label>
+            Model Name
+            <input
+              aria-label="Model Name"
+              onChange={(event) => onChange({ ...settings, modelName: event.target.value })}
+              type="text"
+              value={settings.modelName}
+            />
+          </label>
         </>
       ) : null}
       <label>
