@@ -10,7 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "asr-browser": "workspace:*",
+    "asr-local": "workspace:*",
     "core": "workspace:*",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

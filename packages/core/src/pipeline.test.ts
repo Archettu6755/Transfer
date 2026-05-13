@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MockASRProvider } from 'asr-browser';
+import { MockASRProvider } from 'asr-local';
 import { Pipeline } from './pipeline';
 import type {
   SourceLanguage,

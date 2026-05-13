@@ -1,5 +1,5 @@
 {
-  "name": "asr-browser",
+  "name": "asr-local",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -8,11 +8,9 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@huggingface/transformers": "^3.7.6",
     "shared": "workspace:*"
   }
 }

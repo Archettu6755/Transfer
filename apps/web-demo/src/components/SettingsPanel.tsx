@@ -1,6 +1,6 @@
 import { PROVIDER_PRESETS, type ProviderPreset, type UserSettings } from 'shared';
 
-export type ASRMode = 'mock' | 'browser';
+export type ASRMode = 'mock' | 'local';
 export type TranslationMode = 'mock' | 'openai-compatible';
 
 function applyProviderPreset(settings: UserSettings, presetId: ProviderPreset): UserSettings {
@@ -53,7 +53,7 @@ export function SettingsPanel({
           value={asrMode}
         >
           <option value="mock">Mock ASR</option>
-          <option value="browser">Browser ASR</option>
+          <option value="local">Local ASR</option>
         </select>
       </label>
       <label>
@@ -68,8 +68,8 @@ export function SettingsPanel({
         </select>
       </label>
       <p>
-        {asrMode === 'browser'
-          ? 'Browser ASR requires an uploaded audio file and runs the selected model in a worker.'
+        {asrMode === 'local'
+          ? 'Local ASR mode is scaffolded for an external faster-whisper runtime and requires an uploaded audio file.'
           : 'Mock ASR keeps speech recognition offline and deterministic for regression checks.'}
       </p>
       <p>

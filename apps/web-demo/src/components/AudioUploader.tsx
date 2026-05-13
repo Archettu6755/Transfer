@@ -22,7 +22,7 @@ export function AudioUploader({
         type="file"
       />
       <p>{selectedFileName ? `Selected file: ${selectedFileName}` : 'No file selected.'}</p>
-      <p>{selectedFile ? 'Audio file is ready for Browser ASR mode.' : 'Mock mode does not require an uploaded file.'}</p>
+      <p>{selectedFile ? 'Audio file is ready for Local ASR mode.' : 'Mock mode does not require an uploaded file.'}</p>
     </section>
   );
 }

@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  BrowserASRProvider,
+  LocalASRProvider,
   createAudioInputFromFile as decodeAudioFileToInput,
   MockASRProvider
-} from 'asr-browser';
+} from 'asr-local';
 import { Pipeline } from 'core';
 import {
   type ASRProvider,
@@ -47,13 +47,13 @@ class ErrorReportingTranslator implements TranslatorProvider {
 
 interface AppProps {
   createAudioInputFromFile?: (file: File) => Promise<AudioInput>;
-  createBrowserAsrProvider?: () => ASRProvider;
+  createLocalAsrProvider?: () => ASRProvider;
   createMockAsrProvider?: () => ASRProvider;
 }
 
 export default function App({
   createAudioInputFromFile = decodeAudioFileToInput,
-  createBrowserAsrProvider = () => new BrowserASRProvider(),
+  createLocalAsrProvider = () => new LocalASRProvider(),
   createMockAsrProvider = () => new MockASRProvider()
 }: AppProps) {
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_USER_SETTINGS);
@@ -68,7 +68,7 @@ export default function App({
   const asrProviderInitRef = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
-    const provider = asrMode === 'mock' ? createMockAsrProvider() : createBrowserAsrProvider();
+    const provider = asrMode === 'mock' ? createMockAsrProvider() : createLocalAsrProvider();
     asrProviderRef.current = provider;
     const initPromise = provider.init();
     asrProviderInitRef.current = initPromise;
@@ -85,7 +85,7 @@ export default function App({
       asrProviderInitRef.current = Promise.resolve();
       void provider.dispose();
     };
-  }, [asrMode, createBrowserAsrProvider, createMockAsrProvider]);
+  }, [asrMode, createLocalAsrProvider, createMockAsrProvider]);
 
   function buildTranslatorProvider(): ErrorReportingTranslator {
     if (mode === 'mock') {
@@ -102,9 +102,9 @@ export default function App({
   }
 
   async function buildAudioInput(): Promise<AudioInput> {
-    if (asrMode === 'browser') {
+    if (asrMode === 'local') {
       if (!selectedFile) {
-        throw new Error('Select an audio file before running Browser ASR mode.');
+        throw new Error('Select an audio file before running Local ASR mode.');
       }
 
       return await createAudioInputFromFile(selectedFile);
@@ -146,7 +146,7 @@ export default function App({
       setLastError(message);
       setSegment((currentSegment) =>
         currentSegment ?? {
-          id: selectedFileName || 'browser-audio',
+          id: selectedFileName || 'local-audio',
           source: '',
           translated: '',
           sourceLang: settings.sourceLang,
@@ -163,7 +163,7 @@ export default function App({
   return (
     <main style={{ fontFamily: 'sans-serif', margin: '0 auto', maxWidth: 960, padding: 24 }}>
       <h1>Browser Live Translator Web Demo</h1>
-      <p>Debug mode supports mock and real provider combinations for both ASR and translation.</p>
+      <p>Debug mode supports mock and local provider combinations for both ASR and translation.</p>
       <LanguageSelector settings={settings} onChange={setSettings} />
       <AudioUploader
         selectedFile={selectedFile}
@@ -191,14 +191,14 @@ export default function App({
         lastAsrText={segment?.source ?? ''}
         lastTranslatedText={segment?.translated ?? ''}
         audioCaptureState={
-          asrMode === 'browser'
+          asrMode === 'local'
             ? selectedFileName
               ? `selected: ${selectedFileName}`
               : 'awaiting uploaded audio'
             : 'mock-audio'
         }
         lastError={lastError}
-        asrProvider={asrMode === 'mock' ? 'MockASRProvider' : 'BrowserASRProvider'}
+        asrProvider={asrMode === 'mock' ? 'MockASRProvider' : 'LocalASRProvider'}
         translatorProvider={
           mode === 'mock' ? 'MockTranslator' : 'OpenAICompatibleTranslator'
         }

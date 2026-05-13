@@ -1,4 +1,4 @@
-export type ProviderPreset = 'custom' | 'deepseek' | 'glm';
+export type ProviderPreset = 'custom' | 'deepseek' | 'glm' | 'qwen' | 'kimi';
 
 export interface ProviderPresetDefinition {
   id: ProviderPreset;
@@ -26,6 +26,18 @@ export const PROVIDER_PRESETS: readonly ProviderPresetDefinition[] = [
     id: 'glm',
     label: 'GLM',
     apiBaseUrl: 'https://open.bigmodel.cn/api/paas/v4/',
-    defaultModelName: 'glm-5.1'
+    defaultModelName: 'GLM-4.7-FlashX'
+  },
+  {
+    id: 'qwen',
+    label: 'Qwen',
+    apiBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    defaultModelName: 'qwen-turbo'
+  },
+  {
+    id: 'kimi',
+    label: 'Kimi',
+    apiBaseUrl: 'https://api.moonshot.cn/v1',
+    defaultModelName: 'moonshot-v1-8k'
   }
 ] as const;

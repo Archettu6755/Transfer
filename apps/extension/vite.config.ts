@@ -31,8 +31,10 @@ export default defineConfig({
       input: {
         popup: resolve(rootDir, 'src/popup/popup.html'),
         options: resolve(rootDir, 'src/options/options.html'),
+        offscreen: resolve(rootDir, 'src/offscreen/offscreen.html'),
         serviceWorker: resolve(rootDir, 'src/background/serviceWorker.ts'),
-        contentScript: resolve(rootDir, 'src/content/contentScript.ts')
+        contentScript: resolve(rootDir, 'src/content/contentScript.ts'),
+        captureProcessor: resolve(rootDir, 'src/audio-worklet/captureProcessor.ts')
       },
       output: {
         entryFileNames(chunkInfo) {
@@ -42,6 +44,10 @@ export default defineConfig({
 
           if (chunkInfo.name === 'contentScript') {
             return 'src/content/contentScript.js';
+          }
+
+          if (chunkInfo.name === 'captureProcessor') {
+            return 'src/audio-worklet/captureProcessor.js';
           }
 
           return 'assets/[name].js';

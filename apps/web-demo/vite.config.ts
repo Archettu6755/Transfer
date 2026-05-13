@@ -7,7 +7,7 @@ export default defineConfig({
     alias: {
       shared: new URL('../../packages/shared/src/index.ts', import.meta.url).pathname,
       core: new URL('../../packages/core/src/index.ts', import.meta.url).pathname,
-      'asr-browser': new URL('../../packages/asr-browser/src/index.ts', import.meta.url).pathname,
+      'asr-local': new URL('../../packages/asr-local/src/index.ts', import.meta.url).pathname,
       translator: new URL('../../packages/translator/src/index.ts', import.meta.url).pathname
     }
   },

@@ -17,7 +17,7 @@ describe('App', () => {
     cleanup();
   });
 
-  class FakeBrowserASRProvider implements ASRProvider {
+  class FakeLocalASRProvider implements ASRProvider {
     async init(): Promise<void> {}
 
     async recognize(audio: AudioInput): Promise<{
@@ -29,7 +29,7 @@ describe('App', () => {
     }> {
       return {
         id: audio.id,
-        text: 'Hello from browser ASR.',
+        text: 'Hello from local ASR.',
         lang: 'en',
         timestamp: Date.now(),
         latencyMs: 10
@@ -53,7 +53,7 @@ describe('App', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('runs browser ASR mode with uploaded audio and mock translation', async () => {
+  it('runs local ASR mode with uploaded audio and mock translation', async () => {
     const user = userEvent.setup();
     const file = new File([new Uint8Array([1, 2, 3])], 'sample.wav', { type: 'audio/wav' });
 
@@ -65,19 +65,19 @@ describe('App', () => {
           sampleRate: 16_000,
           durationMs: 500
         })}
-        createBrowserAsrProvider={() => new FakeBrowserASRProvider()}
+        createLocalAsrProvider={() => new FakeLocalASRProvider()}
       />
     );
 
-    await user.selectOptions(screen.getByLabelText('ASR Mode'), 'browser');
+    await user.selectOptions(screen.getByLabelText('ASR Mode'), 'local');
     await user.upload(screen.getByLabelText('Audio File'), file);
     await user.click(screen.getByRole('button', { name: 'Run Translation' }));
 
-    expect(await screen.findByText('Hello from browser ASR.')).toBeTruthy();
+    expect(await screen.findByText('Hello from local ASR.')).toBeTruthy();
     expect(await screen.findByText('大家好，今天我们来玩 Minecraft。')).toBeTruthy();
   });
 
-  it('runs browser ASR mode with the OpenAI-compatible translator', async () => {
+  it('runs local ASR mode with the OpenAI-compatible translator', async () => {
     const user = userEvent.setup();
     const file = new File([new Uint8Array([4, 5, 6])], 'sample-ja.wav', { type: 'audio/wav' });
     fetchMock.mockResolvedValue(
@@ -97,11 +97,11 @@ describe('App', () => {
           sampleRate: 16_000,
           durationMs: 500
         })}
-        createBrowserAsrProvider={() => new FakeBrowserASRProvider()}
+        createLocalAsrProvider={() => new FakeLocalASRProvider()}
       />
     );
 
-    await user.selectOptions(screen.getByLabelText('ASR Mode'), 'browser');
+    await user.selectOptions(screen.getByLabelText('ASR Mode'), 'local');
     await user.selectOptions(screen.getByLabelText('Translation Mode'), 'openai-compatible');
     await user.upload(screen.getByLabelText('Audio File'), file);
     await user.type(screen.getByLabelText('API Base URL'), 'https://api.example.com/v1');
@@ -109,7 +109,7 @@ describe('App', () => {
     await user.type(screen.getByLabelText('Model Name'), 'test-model');
     await user.click(screen.getByRole('button', { name: 'Run Translation' }));
 
-    expect(await screen.findByText('Hello from browser ASR.')).toBeTruthy();
+    expect(await screen.findByText('Hello from local ASR.')).toBeTruthy();
     expect(await screen.findByText('大家好，今天我们来玩 Minecraft。')).toBeTruthy();
   });
 

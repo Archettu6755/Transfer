@@ -10,7 +10,7 @@
     "service_worker": "src/background/serviceWorker.js",
     "type": "module"
   },
-  "permissions": ["storage", "tabs"],
+  "permissions": ["storage", "tabs", "activeTab", "tabCapture", "offscreen"],
   "host_permissions": ["<all_urls>"],
   "content_scripts": [
     {
