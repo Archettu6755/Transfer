@@ -31,6 +31,7 @@ describe('Pipeline', () => {
       {
         sourceLang: 'ja',
         targetLang: 'zh-CN',
+        providerPreset: 'custom',
         apiBaseUrl: '',
         apiKey: '',
         modelName: '',
@@ -63,6 +64,7 @@ describe('Pipeline', () => {
       {
         sourceLang: 'en',
         targetLang: 'en',
+        providerPreset: 'custom',
         apiBaseUrl: '',
         apiKey: '',
         modelName: '',

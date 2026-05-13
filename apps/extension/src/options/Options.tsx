@@ -1,8 +1,37 @@
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { DEFAULT_USER_SETTINGS, SOURCE_LANGUAGES, TARGET_LANGUAGES, type UserSettings } from 'shared';
+import {
+  DEFAULT_USER_SETTINGS,
+  PROVIDER_PRESETS,
+  SOURCE_LANGUAGES,
+  TARGET_LANGUAGES,
+  type ProviderPreset,
+  type UserSettings
+} from 'shared';
 
 const SETTINGS_STORAGE_KEY = 'userSettings';
+
+function applyProviderPreset(settings: UserSettings, presetId: ProviderPreset): UserSettings {
+  const preset = PROVIDER_PRESETS.find((entry) => entry.id === presetId);
+
+  if (!preset) {
+    return settings;
+  }
+
+  if (preset.id === 'custom') {
+    return {
+      ...settings,
+      providerPreset: preset.id
+    };
+  }
+
+  return {
+    ...settings,
+    providerPreset: preset.id,
+    apiBaseUrl: preset.apiBaseUrl,
+    modelName: preset.defaultModelName
+  };
+}
 
 function Options() {
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_USER_SETTINGS);
@@ -57,6 +86,21 @@ function Options() {
             {TARGET_LANGUAGES.map((language) => (
               <option key={language.code} value={language.code}>
                 {language.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Provider Preset
+          <select
+            value={settings.providerPreset}
+            onChange={(event) =>
+              setSettings(applyProviderPreset(settings, event.target.value as ProviderPreset))
+            }
+          >
+            {PROVIDER_PRESETS.map((preset) => (
+              <option key={preset.id} value={preset.id}>
+                {preset.label}
               </option>
             ))}
           </select>

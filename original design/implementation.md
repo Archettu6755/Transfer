@@ -14,16 +14,15 @@ Required:
 - Vite
 - React
 - Chrome Extension Manifest V3
-- A local ASR runtime running in Docker on WSL2 for real-ASR phases
 
 MVP must not use:
 
+- Python
+- Docker
+- WSL2-specific runtime
+- Local ASR server
 - Cloud ASR
-- Cloud-hosted backend service for ASR
-- Unbounded remote dependencies for speech recognition
-
-The repository remains TypeScript-first.
-The local ASR runtime is a separate runtime dependency, not a reason to move product logic into Python or backend-only application code in this repository.
+- Backend service
 
 ---
 
@@ -35,7 +34,6 @@ Use this structure:
 vtuber-live-translator/
   README.md
   AGENTS.md
-  AGENTS-2.md
   target.md
   implementation.md
   package.json
@@ -103,13 +101,13 @@ vtuber-live-translator/
         pipeline.ts
         index.ts
 
-    asr-local/
+    asr-browser/
       package.json
       src/
-        LocalASRProvider.ts
+        BrowserASRProvider.ts
         MockASRProvider.ts
         audioUtils.ts
-        protocol.ts
+        modelRegistry.ts
         index.ts
 
     translator/
@@ -128,12 +126,6 @@ vtuber-live-translator/
         index.ts
 ```
 
-Migration note:
-
-- `packages/asr-browser/` is now a legacy path.
-- New real-ASR work must target `packages/asr-local/`.
-- Existing browser-ASR code may remain temporarily during migration, but it is no longer the target architecture.
-
 ---
 
 ## 3. Shared Types
@@ -150,7 +142,7 @@ It must not contain:
 
 - Chrome API calls
 - Fetch calls
-- Local ASR runtime implementation
+- WASM/model loading
 - React components
 - ASR runtime logic
 - Translator runtime logic
@@ -199,7 +191,7 @@ packages/shared/src/providerPreset.ts
 Required:
 
 ```ts
-export type ProviderPreset = 'custom' | 'deepseek' | 'glm' | 'qwen' | 'kimi';
+export type ProviderPreset = 'custom' | 'openai' | 'openrouter' | 'deepseek';
 
 export interface ProviderPresetDefinition {
   id: ProviderPreset;
@@ -413,11 +405,8 @@ export class Pipeline {
 Path:
 
 ```text
-packages/asr-local/
+packages/asr-browser/
 ```
-
-The real-ASR implementation is now a client/provider layer that talks to a local ASR runtime.
-The Dockerized ASR runtime itself is outside the browser and outside Chrome-extension code.
 
 ---
 
@@ -426,7 +415,7 @@ The Dockerized ASR runtime itself is outside the browser and outside Chrome-exte
 File:
 
 ```text
-packages/asr-local/src/MockASRProvider.ts
+packages/asr-browser/src/MockASRProvider.ts
 ```
 
 Required behavior:
@@ -434,7 +423,7 @@ Required behavior:
 - Implements `ASRProvider`
 - Returns fixed text by source language
 - Simulates roughly 200ms delay
-- Has no network, Docker, WSL2, Chrome, or Node-specific dependency
+- Has no network, WASM, model, Chrome, or Node-specific dependency
 
 Mock text:
 
@@ -448,85 +437,48 @@ const MOCK_ASR_TEXT = {
 
 ---
 
-## 5.2 LocalASRProvider
+## 5.2 BrowserASRProvider
 
 File:
 
 ```text
-packages/asr-local/src/LocalASRProvider.ts
+packages/asr-browser/src/BrowserASRProvider.ts
 ```
 
 Required behavior:
 
 - Implements `ASRProvider`
-- Calls a locally reachable ASR runtime
+- Loads a browser-side ASR model
+- Runs model work in a Web Worker or otherwise avoids blocking UI
 - Accepts `SourceLanguage`
 - Supports uploaded audio first
 - Later supports tab audio chunks
-- Returns stable final text for MVP
-- Reports readable connection and runtime errors
+- Returns stable final text only for MVP
 
-Required design rules:
+Candidate libraries:
 
-- The provider is a TypeScript client, not the ASR runtime itself
-- The provider must stay swappable with `MockASRProvider`
-- The provider must not bake ASR logic into the pipeline
-- The provider must not require Chrome APIs
+- Transformers.js + Whisper / Distil-Whisper
+- whisper.cpp WASM
+- onnxruntime-web
 
-Recommended config:
+Selection criteria:
 
-```ts
-export interface LocalASRConfig {
-  baseUrl: string;
-  timeoutMs?: number;
-}
-```
+- Works in latest Chrome
+- Supports `zh`, `en`, `ja`
+- Prefer model size under 100MB for first experiment
+- Does not require local server
+- Can run in browser context
 
-Recommended first integration contract:
-
-- File transcription over HTTP for web-demo validation
-- Streaming or chunked transcription later for extension integration
+Before implementing the real provider, produce a short decision note in code comments or docs explaining the selected library.
 
 ---
 
-## 5.3 Local ASR Protocol
+## 5.3 Audio Utilities
 
 File:
 
 ```text
-packages/asr-local/src/protocol.ts
-```
-
-Define shared request/response shapes for the local ASR runtime client.
-
-Recommended initial contract:
-
-```ts
-export interface TranscribeFileRequest {
-  sourceLang: SourceLanguage;
-}
-
-export interface TranscribeFileResponse {
-  text: string;
-  lang: SourceLanguage;
-  latencyMs?: number;
-}
-```
-
-Rules:
-
-- Keep protocol definitions runtime-agnostic
-- Do not place Docker- or WSL2-specific shell logic in the provider
-- Do not bind the client to a single ASR engine name in the shared protocol
-
----
-
-## 5.4 Audio Utilities
-
-File:
-
-```text
-packages/asr-local/src/audioUtils.ts
+packages/asr-browser/src/audioUtils.ts
 ```
 
 Required utilities:
@@ -759,12 +711,11 @@ Web demo behavior by phase:
 
 ### Phase 3
 
-- Replace mock real-ASR path with `LocalASRProvider`
+- Replace MockASR with `BrowserASRProvider`
 - Upload audio file
-- Send audio to the local ASR runtime
+- Run ASR
 - Translate result
 - Display subtitle preview
-- Preserve mock/real ASR interchangeability
 
 ---
 
@@ -871,7 +822,6 @@ Responsibilities:
 - Initialize pipeline
 - Route subtitle updates to content script
 - Handle stop/cleanup
-- Coordinate the local ASR provider client lifecycle
 
 ---
 
@@ -919,7 +869,7 @@ Responsibilities:
 - Create `AudioContext`
 - Route audio back to output so the user can still hear the stream
 - Use `AudioWorklet` to emit audio chunks
-- Send audio chunks to background or the local ASR provider client layer
+- Send audio chunks to background or the pipeline layer
 
 ---
 
@@ -938,8 +888,8 @@ Validate:
 
 ```bash
 pnpm install
-pnpm build
-pnpm typecheck
+pnpm -r build
+pnpm -r type-check
 ```
 
 ---
@@ -984,12 +934,11 @@ pnpm --filter web-demo dev
 
 ---
 
-### Phase 3 — Local ASR in Web Demo
+### Phase 3 — Browser ASR in Web Demo
 
 Deliver:
 
-- `packages/asr-local/`
-- Local ASR provider client
+- Browser ASR provider
 - Audio upload decode path
 - Source language parameter
 - ASR -> translation -> preview flow
@@ -997,14 +946,14 @@ Deliver:
 Validate:
 
 ```bash
-pnpm --filter asr-local test
+pnpm --filter asr-browser test
 pnpm --filter web-demo dev
 ```
 
 Manual validation:
 
-- Upload English audio in an ASR-capable environment
-- Upload Japanese audio in an ASR-capable environment
+- Upload English audio
+- Upload Japanese audio
 - Optional: upload Mandarin Chinese audio
 
 ---
@@ -1044,7 +993,6 @@ Deliver:
 - `AudioWorklet`
 - Audio chunk logs
 - Audio routed back to output
-- Audio chunk handoff to the local ASR provider client layer
 
 Validate:
 
@@ -1064,7 +1012,7 @@ Manual validation:
 
 Deliver:
 
-- Tab audio -> local ASR runtime
+- Tab audio -> Browser ASR
 - ASR result -> OpenAI-compatible translation
 - Translation -> content overlay
 - Stop cleanup
@@ -1075,7 +1023,6 @@ Manual validation:
 Open Twitch / YouTube livestream
   -> Click Start
   -> Capture tab audio
-  -> Send audio to local ASR runtime
   -> Recognize selected source language
   -> Translate into selected target language
   -> Display subtitle overlay
@@ -1090,7 +1037,7 @@ Open Twitch / YouTube livestream
 Use this as the first coding task:
 
 ```text
-Read AGENTS.md, AGENTS-2.md, target.md, and implementation.md.
+Read AGENTS.md, target.md, and implementation.md.
 
 Implement Phase 0 and Phase 1 only:
 - Create the pnpm monorepo structure.
@@ -1101,7 +1048,7 @@ Implement Phase 0 and Phase 1 only:
 - Create a Vite React web-demo that runs the mock pipeline.
 
 Do not implement Chrome extension audio capture.
-Do not implement real local ASR yet.
+Do not implement real browser ASR.
 Do not implement OpenAI-compatible translator yet.
 Do not add unsupported languages or deferred features.
 

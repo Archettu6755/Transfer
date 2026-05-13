@@ -1,9 +1,8 @@
 # AGENTS.md — Agent Workflow Contract
 
 > This document defines how coding agents must work in this repository.
-> `AGENTS-2.md` is the local-environment execution contract.
 > `target.md` is the product contract. `implementation.md` is the engineering contract.
-> Agents must read all four documents before making changes.
+> Agents must read all three documents before making changes.
 
 ---
 
@@ -17,18 +16,15 @@
    - File paths, package boundaries, interfaces, and phase deliverables are defined there.
    - Do not invent alternate project structure without user approval.
 
-3. **`AGENTS-2.md` is the source of truth for this workstation's execution limits.**
-   - If a task requires Docker, WSL2, or real local-ASR runtime work on this machine, stop and report that constraint.
-
-4. **Mock first, real implementation second.**
+3. **Mock first, real implementation second.**
    - Every major module must have a mock implementation before the real implementation.
    - The mock pipeline must run end-to-end before real ASR or real LLM integration.
 
-5. **Small changes only.**
+4. **Small changes only.**
    - Complete one phase or one clearly scoped task at a time.
    - Do not implement future features “just in case.”
 
-6. **Validate after every meaningful change.**
+5. **Validate after every meaningful change.**
    - Run the relevant build/typecheck/test command.
    - Do not report success if validation fails.
 
@@ -67,6 +63,8 @@ The MVP must not implement:
 - User glossary / terminology table
 - Platform caption extraction
 - Cloud ASR
+- Local ASR server
+- Docker / Python / WSL2 ASR
 - Speaker diarization
 - AI dubbing
 - Subtitle export
@@ -84,10 +82,9 @@ Agents must follow this workflow for every task.
 
 ```text
 Step 1. Understand
-  - Read AGENTS.md, AGENTS-2.md, target.md, and implementation.md.
+  - Read target.md and implementation.md.
   - Locate the phase or feature being requested.
   - If the user request conflicts with target.md, state the conflict.
-  - If the task requires local-ASR runtime work on this machine, state the AGENTS-2.md conflict.
 
 Step 2. Scope
   - List files to be added / modified / removed.
@@ -174,7 +171,7 @@ Forbidden:
 
 ```ts
 // Forbidden inside Pipeline
-new LocalASRProvider()
+new BrowserASRProvider()
 new OpenAICompatibleTranslator()
 ```
 
@@ -194,7 +191,7 @@ Mock providers must:
 
 - Be implemented before real providers
 - Not call network APIs
-- Not depend on Docker or WSL2
+- Not load WASM
 - Not depend on Chrome APIs
 - Cover all supported language values
 - Be usable in tests and the web demo
@@ -214,8 +211,8 @@ Mock providers should not be imported by production extension runtime unless exp
 ### 4.7 Error Handling
 
 - Network requests must use `try/catch`.
-- Local ASR provider calls must use `try/catch`.
-- Audio capture and chunk handoff must report readable errors.
+- ASR model loading must use `try/catch`.
+- WASM / Web Worker calls must report readable errors.
 - Errors must propagate to UI in a user-readable way.
 - Do not swallow failures silently.
 
@@ -231,8 +228,7 @@ Mock providers should not be imported by production extension runtime unless exp
 | `apps/extension/` | read/write | Chrome extension |
 | `packages/shared/` | read/write | Shared types and constants only |
 | `packages/core/` | read/write | Pipeline |
-| `packages/asr-local/` | read/write | Local ASR providers and protocol |
-| `packages/asr-browser/` | read/write | Legacy browser-ASR migration area only |
+| `packages/asr-browser/` | read/write | Browser ASR providers |
 | `packages/translator/` | read/write | Translator providers |
 | `packages/subtitle/` | read/write | Subtitle state/timing |
 
@@ -241,7 +237,6 @@ Mock providers should not be imported by production extension runtime unless exp
 Agents may read:
 
 - `AGENTS.md`
-- `AGENTS-2.md`
 - `target.md`
 - `implementation.md`
 
@@ -252,8 +247,8 @@ Agents must not modify them unless the user explicitly asks to update project sp
 - Do not delete existing `index.ts` files without updating imports.
 - Do not place runtime logic in `packages/shared` except simple constants.
 - Do not move Chrome-specific code into `packages/core`.
-- Do not move local ASR implementation into the translator package.
-- Do not place cloud- or backend-only product logic into extension content scripts.
+- Do not move browser ASR implementation into the translator package.
+- Do not add backend/server directories during MVP.
 
 ---
 
@@ -281,7 +276,7 @@ pnpm --filter core test
 pnpm --filter translator test
 
 # ASR package
-pnpm --filter asr-local test
+pnpm --filter asr-browser test
 
 # extension
 pnpm --filter extension build
@@ -325,15 +320,16 @@ Before reporting complete:
 - [ ] Network failures return readable UI errors
 - [ ] Translation supports only `zh-CN` and `en` targets
 
-### Phase 3 — Local ASR
+### Phase 3 — Browser ASR
 
 Before reporting complete:
 
-- [ ] `LocalASRProvider` implements `ASRProvider`
+- [ ] `BrowserASRProvider` implements `ASRProvider`
+- [ ] Model runs in Web Worker or otherwise does not block the main UI
 - [ ] Source language parameter is passed to ASR
 - [ ] Uploaded audio works in web demo
+- [ ] At least `en` and `ja` are manually verified
 - [ ] Mock and real ASR are interchangeable
-- [ ] Manual local-ASR verification is performed only in an ASR-capable environment
 
 ### Phase 4 — Chrome Extension Skeleton
 
@@ -359,11 +355,11 @@ Before reporting complete:
 Before reporting complete:
 
 - [ ] Twitch / YouTube page can start translation
-- [ ] Tab audio reaches local ASR
+- [ ] Tab audio reaches browser ASR
 - [ ] ASR output reaches translator
 - [ ] Translated subtitles reach overlay
 - [ ] Stop releases resources
-- [ ] No cloud ASR is required
+- [ ] No Python / Docker / local server / cloud ASR is required
 
 ---
 
@@ -373,13 +369,12 @@ Stop and ask the user when any of the following occurs:
 
 1. The request conflicts with `target.md`.
 2. The request requires adding a deferred feature.
-3. ASR runtime choice requires a major architecture tradeoff.
+3. ASR library choice requires a major architecture tradeoff.
 4. Shared type definitions need breaking changes.
 5. Pipeline interface needs breaking changes.
 6. A validation command fails more than three times.
-7. A required dependency is no longer maintained or cannot run in the target local-ASR runtime environment.
-8. A task requires real Docker/WSL2/local-ASR runtime work on this machine in violation of `AGENTS-2.md`.
-9. A requested change requires modifying `AGENTS.md`, `AGENTS-2.md`, `target.md`, or `implementation.md`.
+7. A required dependency is no longer maintained or cannot run in browser.
+8. A requested change requires modifying `AGENTS.md`, `target.md`, or `implementation.md`.
 
 Use this format:
 
@@ -400,13 +395,12 @@ Never:
 - Print a user API key
 - Add unsupported languages
 - Add a glossary feature in MVP
-- Add cloud ASR in MVP
+- Add local server or cloud ASR in MVP
 - Add TODOs for out-of-scope features
 - Bypass provider interfaces
 - Put ASR/translation inside content script
 - Claim success without validation
 - Modify project spec documents without explicit instruction
-- Claim real local-ASR validation from this machine
 
 ---
 
@@ -445,7 +439,7 @@ Allowed provider modes:
 
 - ASR:
   - `MockASRProvider`
-  - `LocalASRProvider`
+  - `BrowserASRProvider`
 
 - Translator:
   - `MockTranslator`
@@ -457,8 +451,8 @@ This creates four valid debug-stage combinations:
 
 - Mock ASR + Mock Translator
 - Mock ASR + OpenAI-compatible Translator
-- Local ASR + Mock Translator
-- Local ASR + OpenAI-compatible Translator
+- Browser ASR + Mock Translator
+- Browser ASR + OpenAI-compatible Translator
 
 The purpose of these combinations is validation and fault isolation only.
 They must not expand product scope beyond the MVP defined in `target.md`.
@@ -494,7 +488,7 @@ Release-cleanup requirements:
 2. Remove test-only mock runtime wiring from the production extension path.
 3. Keep only the real MVP chain for shipped extension behavior:
    - browser tab audio
-   - real local ASR
+   - real browser ASR
    - real OpenAI-compatible translator
    - real subtitle overlay
 4. Mock providers may remain in the repository for tests and development, but must not remain user-selectable in the production extension build unless the user explicitly requests a development build.

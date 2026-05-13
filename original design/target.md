@@ -8,22 +8,22 @@
 
 ## 1. Product Positioning
 
-Build a Chrome extension for livestream translation.
+Build a browser-native live translation Chrome extension for livestreams.
 
-The MVP captures the current browser tab audio, sends audio to a local ASR runtime running in Docker on WSL2, translates the transcript through a user-provided OpenAI-compatible LLM API, and renders subtitles on the livestream page.
+The MVP captures the current browser tab audio, runs speech recognition in the browser, translates the transcript through a user-provided OpenAI-compatible LLM API, and renders subtitles on the livestream page.
 
 Core value:
 
-- **Local-first ASR:** no cloud ASR is required.
+- **No deployment:** no Python, Docker, WSL2, CUDA, local ASR server, or cloud ASR required.
+- **Local audio processing:** livestream audio is processed in the browser for ASR.
 - **User-owned LLM credentials:** the user enters their own API Base URL, API Key, and Model Name.
 - **Composable architecture:** ASR and Translator are provider-based so they can be replaced later.
-- **Debuggable integration:** mock and real providers may coexist during validation.
 
 Core product flow:
 
 ```text
 Current tab audio
-  -> Local WSL2/Docker ASR runtime
+  -> Browser-side ASR
   -> Source-language text
   -> OpenAI-compatible LLM translation
   -> Subtitle overlay on page
@@ -85,8 +85,7 @@ Purpose:
 - Validate the pipeline without Chrome extension permissions.
 - Test mock ASR and mock translation.
 - Test OpenAI-compatible translation.
-- Test local ASR on uploaded audio.
-- Preserve explicit provider-mode combinations for debug isolation.
+- Test browser ASR on uploaded audio.
 
 The web demo should include:
 
@@ -109,7 +108,7 @@ The extension should provide:
 - Popup with Start / Stop controls
 - Options page for settings
 - Current tab audio capture
-- Local WSL2/Docker ASR integration
+- Browser ASR
 - OpenAI-compatible LLM translation
 - Subtitle overlay injected into Twitch / YouTube pages
 
@@ -149,8 +148,6 @@ The Options page must allow the user to configure:
 - Debug mode
 
 Settings must persist locally.
-
-The MVP does not require a user-facing ASR endpoint editor unless the product scope is explicitly expanded later.
 
 ---
 
@@ -242,6 +239,8 @@ The following must not appear in MVP UI, settings, hidden flags, TODOs, or pre-c
 - Platform caption extraction
 - Google Live Caption integration
 - Cloud ASR
+- Local ASR server
+- Docker / Python / WSL2 ASR
 - Speaker diarization
 - AI dubbing
 - Subtitle export
@@ -264,7 +263,7 @@ The MVP should feel:
 
 It should not feel like a full translation platform yet.
 
-The first product milestone is only to prove the livestream translation loop with local ASR and OpenAI-compatible translation.
+The first product milestone is only to prove the browser-native livestream translation loop.
 
 ---
 
@@ -276,8 +275,8 @@ The MVP is complete when:
 2. The user can configure source language, target language, API Base URL, API Key, and Model Name, either manually or through a provider preset that auto-fills recommended values.
 3. The user can open a Twitch or YouTube livestream and click Start.
 4. The extension captures current tab audio.
-5. The local WSL2/Docker ASR runtime produces source-language text.
+5. Browser-side ASR produces source-language text.
 6. The translator converts source text into `zh-CN` or `en`.
 7. The content script displays translated subtitles on the page.
 8. The user can stop the translation process.
-9. The MVP requires no cloud ASR, but does require a local WSL2/Docker ASR runtime.
+9. The MVP requires no Python, Docker, WSL2, local server, or cloud ASR.

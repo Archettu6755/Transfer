@@ -137,6 +137,44 @@ describe('App', () => {
     expect(await screen.findByText('大家好，今天我们来玩 Minecraft。')).toBeTruthy();
   });
 
+  it('auto-fills Base URL and Model Name when a provider preset is selected', async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.selectOptions(screen.getByLabelText('Translation Mode'), 'openai-compatible');
+    await user.selectOptions(screen.getByLabelText('Provider Preset'), 'deepseek');
+
+    expect((screen.getByLabelText('API Base URL') as HTMLInputElement).value).toBe(
+      'https://api.deepseek.com'
+    );
+    expect((screen.getByLabelText('Model Name') as HTMLInputElement).value).toBe(
+      'deepseek-v4-flash'
+    );
+    expect((screen.getByLabelText('API Key') as HTMLInputElement).value).toBe('');
+  });
+
+  it('keeps manual Base URL and Model Name editing available in custom preset mode', async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.selectOptions(screen.getByLabelText('Translation Mode'), 'openai-compatible');
+    await user.selectOptions(screen.getByLabelText('Provider Preset'), 'deepseek');
+    await user.selectOptions(screen.getByLabelText('Provider Preset'), 'custom');
+    await user.clear(screen.getByLabelText('API Base URL'));
+    await user.type(screen.getByLabelText('API Base URL'), 'https://custom.example.com/v1');
+    await user.clear(screen.getByLabelText('Model Name'));
+    await user.type(screen.getByLabelText('Model Name'), 'custom-model');
+
+    expect((screen.getByLabelText('API Base URL') as HTMLInputElement).value).toBe(
+      'https://custom.example.com/v1'
+    );
+    expect((screen.getByLabelText('Model Name') as HTMLInputElement).value).toBe(
+      'custom-model'
+    );
+  });
+
   it('shows a readable error when translation fails', async () => {
     const user = userEvent.setup();
     fetchMock.mockResolvedValue(

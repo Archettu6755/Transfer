@@ -1,7 +1,29 @@
-import type { UserSettings } from 'shared';
+import { PROVIDER_PRESETS, type ProviderPreset, type UserSettings } from 'shared';
 
 export type ASRMode = 'mock' | 'browser';
 export type TranslationMode = 'mock' | 'openai-compatible';
+
+function applyProviderPreset(settings: UserSettings, presetId: ProviderPreset): UserSettings {
+  const preset = PROVIDER_PRESETS.find((entry) => entry.id === presetId);
+
+  if (!preset) {
+    return settings;
+  }
+
+  if (preset.id === 'custom') {
+    return {
+      ...settings,
+      providerPreset: preset.id
+    };
+  }
+
+  return {
+    ...settings,
+    providerPreset: preset.id,
+    apiBaseUrl: preset.apiBaseUrl,
+    modelName: preset.defaultModelName
+  };
+}
 
 interface SettingsPanelProps {
   asrMode: ASRMode;
@@ -57,6 +79,22 @@ export function SettingsPanel({
       </p>
       {mode === 'openai-compatible' ? (
         <>
+          <label>
+            Provider Preset
+            <select
+              aria-label="Provider Preset"
+              onChange={(event) =>
+                onChange(applyProviderPreset(settings, event.target.value as ProviderPreset))
+              }
+              value={settings.providerPreset}
+            >
+              {PROVIDER_PRESETS.map((preset) => (
+                <option key={preset.id} value={preset.id}>
+                  {preset.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <label>
             API Base URL
             <input
