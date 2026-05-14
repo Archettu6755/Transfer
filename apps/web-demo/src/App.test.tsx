@@ -193,6 +193,7 @@ describe('App', () => {
     await user.type(screen.getByLabelText('Model Name'), 'test-model');
     await user.click(screen.getByRole('button', { name: 'Run Translation' }));
 
+    expect((await screen.findAllByText('今日はマイクラをやります。')).length).toBeGreaterThan(0);
     expect(await screen.findByText('Translation request failed (401 Unauthorized): Bad API key')).toBeTruthy();
   });
 });

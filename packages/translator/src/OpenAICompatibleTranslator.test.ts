@@ -13,6 +13,36 @@ describe('OpenAICompatibleTranslator', () => {
     vi.restoreAllMocks();
   });
 
+  it('throws readable errors when required configuration is missing', async () => {
+    const missingBaseUrl = new OpenAICompatibleTranslator({
+      apiBaseUrl: '',
+      apiKey: 'test-key',
+      modelName: 'test-model'
+    });
+    const missingApiKey = new OpenAICompatibleTranslator({
+      apiBaseUrl: 'https://api.example.com/v1',
+      apiKey: '',
+      modelName: 'test-model'
+    });
+    const missingModelName = new OpenAICompatibleTranslator({
+      apiBaseUrl: 'https://api.example.com/v1',
+      apiKey: 'test-key',
+      modelName: ''
+    });
+
+    await expect(
+      missingBaseUrl.translate('今日はマイクラをやります。', 'ja', 'zh-CN')
+    ).rejects.toThrow('API Base URL is required.');
+    await expect(
+      missingApiKey.translate('今日はマイクラをやります。', 'ja', 'zh-CN')
+    ).rejects.toThrow('API Key is required.');
+    await expect(
+      missingModelName.translate('今日はマイクラをやります。', 'ja', 'zh-CN')
+    ).rejects.toThrow('Model Name is required.');
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('calls the OpenAI-compatible chat completions endpoint and returns trimmed content', async () => {
     fetchMock.mockResolvedValue(
       new Response(
@@ -65,5 +95,32 @@ describe('OpenAICompatibleTranslator', () => {
     await expect(translator.translate('今日はマイクラをやります。', 'ja', 'zh-CN')).rejects.toThrow(
       'Translation request failed (401 Unauthorized): Bad API key'
     );
+  });
+
+  it('throws a readable timeout error without echoing the API key', async () => {
+    fetchMock.mockImplementation(
+      async (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          const signal = init?.signal;
+          signal?.addEventListener(
+            'abort',
+            () => {
+              reject(new DOMException('Aborted', 'AbortError'));
+            },
+            { once: true }
+          );
+        })
+    );
+
+    const translator = new OpenAICompatibleTranslator({
+      apiBaseUrl: 'https://api.example.com/v1',
+      apiKey: 'super-secret-key',
+      modelName: 'test-model',
+      timeoutMs: 5
+    });
+
+    const translationPromise = translator.translate('今日はマイクラをやります。', 'ja', 'zh-CN');
+    await expect(translationPromise).rejects.toThrow('Translation request timed out after 5ms.');
+    await expect(translationPromise).rejects.not.toThrow(/super-secret-key/);
   });
 });
