@@ -1,8 +1,10 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { LocalASRProvider } from 'asr-local';
 import type { ASRProvider, AudioInput } from 'shared';
 import App from './App';
+import type { LocalASRConfig, LocalASRRuntimeClient, TranscribeFileRequest } from 'asr-local';
 
 describe('App', () => {
   const fetchMock = vi.fn<typeof fetch>();
@@ -17,26 +19,24 @@ describe('App', () => {
     cleanup();
   });
 
-  class FakeLocalASRProvider implements ASRProvider {
-    async init(): Promise<void> {}
+  function createFakeLocalAsrProvider(
+    overrides: Partial<LocalASRRuntimeClient> = {}
+  ): ASRProvider {
+    const client: LocalASRRuntimeClient = {
+      init: vi.fn(async (_config: LocalASRConfig) => {}),
+      transcribeFile: vi.fn(
+        async (request: TranscribeFileRequest) => ({
+          requestId: request.requestId,
+          text: 'ローカルASRからのテキストです。',
+          lang: request.sourceLang,
+          latencyMs: 10
+        })
+      ),
+      dispose: vi.fn(async () => {}),
+      ...overrides
+    };
 
-    async recognize(audio: AudioInput): Promise<{
-      id: string;
-      text: string;
-      lang: 'ja';
-      timestamp: number;
-      latencyMs: number;
-    }> {
-      return {
-        id: audio.id,
-        text: 'ローカルASRからのテキストです。',
-        lang: 'ja',
-        timestamp: Date.now(),
-        latencyMs: 10
-      };
-    }
-
-    async dispose(): Promise<void> {}
+    return new LocalASRProvider({ client });
   }
 
   it('runs mock mode without an API key or network request', async () => {
@@ -65,7 +65,7 @@ describe('App', () => {
           sampleRate: 16_000,
           durationMs: 500
         })}
-        createLocalAsrProvider={() => new FakeLocalASRProvider()}
+        createLocalAsrProvider={() => createFakeLocalAsrProvider()}
       />
     );
 
@@ -97,7 +97,7 @@ describe('App', () => {
           sampleRate: 16_000,
           durationMs: 500
         })}
-        createLocalAsrProvider={() => new FakeLocalASRProvider()}
+        createLocalAsrProvider={() => createFakeLocalAsrProvider()}
       />
     );
 
@@ -195,5 +195,34 @@ describe('App', () => {
 
     expect((await screen.findAllByText('今日はマイクラをやります。')).length).toBeGreaterThan(0);
     expect(await screen.findByText('Translation request failed (401 Unauthorized): Bad API key')).toBeTruthy();
+  });
+
+  it('shows a readable error when the local runtime client fails', async () => {
+    const user = userEvent.setup();
+    const file = new File([new Uint8Array([7, 8, 9])], 'broken.wav', { type: 'audio/wav' });
+
+    render(
+      <App
+        createAudioInputFromFile={async () => ({
+          id: 'broken.wav',
+          data: new Float32Array([0.3, -0.3]),
+          sampleRate: 16_000,
+          durationMs: 500
+        })}
+        createLocalAsrProvider={() =>
+          createFakeLocalAsrProvider({
+            transcribeFile: vi.fn(async () => {
+              throw new Error('anime-whisper runtime unavailable');
+            })
+          })
+        }
+      />
+    );
+
+    await user.selectOptions(screen.getByLabelText('ASR Mode'), 'local');
+    await user.upload(screen.getByLabelText('Audio File'), file);
+    await user.click(screen.getByRole('button', { name: 'Run Translation' }));
+
+    expect(await screen.findByText('anime-whisper runtime unavailable')).toBeTruthy();
   });
 });
