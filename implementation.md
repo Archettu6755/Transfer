@@ -9,959 +9,313 @@
 
 Required:
 
-- TypeScript
-- pnpm workspace monorepo
-- Vite
-- React
-- Chrome Extension Manifest V3
-- A local ASR runtime running in Docker on WSL2 for real-ASR phases
+- Python
+- PySide6
+- Docker / docker-compose
+- `anime-whisper`
+- OpenAI-compatible translator client
 
 MVP must not use:
 
 - Cloud ASR
-- Cloud-hosted backend service for ASR
-- Unbounded remote dependencies for speech recognition
+- Browser-extension runtime as the main product path
+- Browser page-injected overlay as the main subtitle path
 
-The repository remains TypeScript-first.
-The local ASR runtime is a separate runtime dependency, not a reason to move product logic into Python or backend-only application code in this repository.
+The repository remains local-first.
+The `anime-whisper` runtime is an external runtime dependency, not a reason to move all product logic into the runtime container.
 
 ---
 
 ## 2. Repository Structure
 
-Use this structure:
+Use this structure as the target architecture:
 
 ```text
-vtuber-live-translator/
-  README.md
+browser-live-translator/
   AGENTS.md
   AGENTS-2.md
   target.md
   implementation.md
-  package.json
-  pnpm-workspace.yaml
-  tsconfig.base.json
 
   apps/
+    desktop-cli/
+      pyproject.toml
+      src/
+        cli/
+        audio_input/
+        runtime_client/
+        translator_client/
+        subtitle_controller/
+        overlay_window/
+        config/
+        tests/
+
     web-demo/
       package.json
       index.html
       vite.config.ts
       src/
-        main.tsx
         App.tsx
         components/
           AudioUploader.tsx
-          LanguageSelector.tsx
           SettingsPanel.tsx
           SubtitlePreview.tsx
           DebugPanel.tsx
 
-    extension/
-      package.json
-      vite.config.ts
-      manifest.json
-      public/
-        icons/
-      src/
-        background/
-          serviceWorker.ts
-          messageRouter.ts
-        popup/
-          Popup.tsx
-          popup.html
-        options/
-          Options.tsx
-          options.html
-        content/
-          contentScript.ts
-          overlay.ts
-          overlay.css
-        offscreen/
-          offscreen.html
-          offscreen.ts
-        audio-worklet/
-          captureProcessor.ts
-
   packages/
     shared/
-      package.json
-      src/
-        language.ts
-        providerPreset.ts
-        audio.ts
-        asr.ts
-        translation.ts
-        subtitle.ts
-        settings.ts
-        messages.ts
-        index.ts
-
     core/
-      package.json
-      src/
-        pipeline.ts
-        index.ts
-
     asr-local/
-      package.json
-      src/
-        LocalASRProvider.ts
-        MockASRProvider.ts
-        audioUtils.ts
-        protocol.ts
-        index.ts
-
     translator/
-      package.json
-      src/
-        OpenAICompatibleTranslator.ts
-        MockTranslator.ts
-        prompt.ts
-        index.ts
-
     subtitle/
-      package.json
-      src/
-        SubtitleStore.ts
-        subtitleTiming.ts
-        index.ts
-```
-
-Migration note:
-
-- `packages/asr-browser/` is now a legacy path.
-- New real-ASR work must target `packages/asr-local/`.
-- Existing browser-ASR code may remain temporarily during migration, but it is no longer the target architecture.
-
----
-
-## 3. Shared Types
-
-All cross-package types live in `packages/shared/src`.
-
-`packages/shared` may contain:
-
-- Types
-- Constants
-- Simple pure utilities
-
-It must not contain:
-
-- Chrome API calls
-- Fetch calls
-- Local ASR runtime implementation
-- React components
-- ASR runtime logic
-- Translator runtime logic
-
----
-
-## 3.1 Language Types
-
-File:
-
-```text
-packages/shared/src/language.ts
-```
-
-Required:
-
-```ts
-export type SourceLanguage = 'zh' | 'en' | 'ja';
-export type TargetLanguage = 'zh-CN' | 'en';
-
-export const SOURCE_LANGUAGES = [
-  { code: 'zh', label: 'Mandarin Chinese' },
-  { code: 'en', label: 'English' },
-  { code: 'ja', label: 'Japanese' },
-] as const;
-
-export const TARGET_LANGUAGES = [
-  { code: 'zh-CN', label: 'Simplified Chinese' },
-  { code: 'en', label: 'English' },
-] as const;
-
-export const DEFAULT_SOURCE_LANGUAGE: SourceLanguage = 'ja';
-export const DEFAULT_TARGET_LANGUAGE: TargetLanguage = 'zh-CN';
-```
-
----
-
-## 3.2 Provider Preset Types
-
-File:
-
-```text
-packages/shared/src/providerPreset.ts
-```
-
-Required:
-
-```ts
-export type ProviderPreset = 'custom' | 'deepseek' | 'glm' | 'qwen' | 'kimi';
-
-export interface ProviderPresetDefinition {
-  id: ProviderPreset;
-  label: string;
-  apiBaseUrl: string;
-  defaultModelName: string;
-}
-
-export const PROVIDER_PRESETS: readonly ProviderPresetDefinition[];
-export const DEFAULT_PROVIDER_PRESET: ProviderPreset = 'custom';
 ```
 
 Rules:
 
-- `custom` must always exist.
-- Presets are a convenience layer only.
-- Presets must not remove the user's ability to manually edit `apiBaseUrl` and `modelName`.
-- API keys must never be bundled into preset definitions.
+- `apps/desktop-cli/` becomes the main product path.
+- `apps/web-demo/` remains a development and validation tool only.
+- Existing browser-extension code is no longer the target architecture.
 
 ---
 
-## 3.3 Settings Types
+## 3. Architectural Boundaries
 
-File:
+The product must keep these responsibilities separated:
 
-```text
-packages/shared/src/settings.ts
-```
+- `audio_input`
+- `runtime_client`
+- `translator_client`
+- `subtitle_controller`
+- `overlay_window`
 
-Required:
+It must not collapse them into one large script.
 
-```ts
-export interface UserSettings {
-  sourceLang: SourceLanguage;
-  targetLang: TargetLanguage;
+### 3.1 Runtime model
 
-  providerPreset: ProviderPreset;
-  apiBaseUrl: string;
-  apiKey: string;
-  modelName: string;
+The real ASR target is `anime-whisper`.
 
-  showSourceText: boolean;
-  fontSize: number;
-  subtitlePosition: 'top' | 'bottom' | 'floating';
-  backgroundOpacity: number;
+Rules:
 
-  debugEnabled: boolean;
-}
-```
+- The runtime is external and runs through Docker or docker-compose.
+- Repository code talks to the runtime through a client boundary.
+- The runtime implementation itself is not the main product code.
 
-Default:
+### 3.2 Subtitle model
 
-```ts
-export const DEFAULT_USER_SETTINGS: UserSettings = {
-  sourceLang: 'ja',
-  targetLang: 'zh-CN',
-  providerPreset: 'custom',
-  apiBaseUrl: '',
-  apiKey: '',
-  modelName: '',
-  showSourceText: false,
-  fontSize: 24,
-  subtitlePosition: 'bottom',
-  backgroundOpacity: 0.65,
-  debugEnabled: false,
-};
-```
+Current MVP subtitle behavior is fixed:
+
+- final transcript only
+- latest single subtitle only
+- translated text first
+- optional source text
+- basic wrapping only
+
+Do not implement rolling history, formal bilingual mode, or incremental subtitle UI in MVP.
+
+### 3.3 Web demo role
+
+The web demo exists only for file-based validation of:
+
+- `anime-whisper` client integration
+- translation behavior
+- subtitle text behavior
+
+It is not the final delivery form.
 
 ---
 
-## 3.4 Audio Types
+## 4. Core Interfaces
 
-File:
+The exact code can differ, but the architecture must expose clear boundaries for:
+
+- runtime transcript events
+- translator requests
+- subtitle display state
+- lifecycle control
+
+Recommended event model:
 
 ```text
-packages/shared/src/audio.ts
+final_transcript_received
+translation_succeeded
+translation_failed
+session_stopped
+session_failed
 ```
 
-Required:
+Recommended controller responsibility:
 
-```ts
-export interface AudioInput {
-  id: string;
-  data: Float32Array;
-  sampleRate: number;
-  durationMs?: number;
-}
-```
+- receive final transcript
+- call translator
+- update subtitle state
+- update overlay window
+- handle stop cleanup
+
+Recommended stop behavior:
+
+- stop audio input
+- stop runtime session
+- stop translation work
+- clear subtitle state
+- hide or reset overlay window
 
 ---
 
-## 3.5 ASR Types
+## 5. Runtime Client
 
-File:
-
-```text
-packages/shared/src/asr.ts
-```
-
-Required:
-
-```ts
-export interface ASRResult {
-  id: string;
-  text: string;
-  lang: SourceLanguage;
-  timestamp: number;
-  latencyMs?: number;
-}
-
-export interface ASRProvider {
-  init(): Promise<void>;
-  recognize(audio: AudioInput, lang: SourceLanguage): Promise<ASRResult>;
-  dispose(): Promise<void>;
-}
-```
-
----
-
-## 3.6 Translation Types
-
-File:
+Target path:
 
 ```text
-packages/shared/src/translation.ts
-```
-
-Required:
-
-```ts
-export interface TranslationResult {
-  sourceText: string;
-  translatedText: string;
-  targetLang: TargetLanguage;
-  latencyMs?: number;
-}
-
-export interface TranslatorProvider {
-  translate(
-    text: string,
-    from: SourceLanguage,
-    to: TargetLanguage
-  ): Promise<TranslationResult>;
-}
-```
-
----
-
-## 3.7 Subtitle Types
-
-File:
-
-```text
-packages/shared/src/subtitle.ts
-```
-
-Required:
-
-```ts
-export interface SubtitleSegment {
-  id: string;
-  source: string;
-  translated: string;
-  sourceLang: SourceLanguage;
-  targetLang: TargetLanguage;
-  createdAt: number;
-  status: 'asr_done' | 'translating' | 'translated' | 'error';
-}
-```
-
----
-
-## 4. Core Pipeline
-
-File:
-
-```text
-packages/core/src/pipeline.ts
-```
-
-The pipeline must:
-
-1. Accept an `ASRProvider` and `TranslatorProvider` through dependency injection.
-2. Accept audio input and user settings.
-3. Call ASR with the selected source language.
-4. Call translator with selected source and target languages.
-5. Return a `SubtitleSegment`.
-6. Preserve source text when translation fails.
-7. Not import Chrome APIs.
-8. Not instantiate concrete providers internally.
-
-Recommended shape:
-
-```ts
-export class Pipeline {
-  constructor(
-    private readonly asr: ASRProvider,
-    private readonly translator: TranslatorProvider
-  ) {}
-
-  async process(audio: AudioInput, settings: UserSettings): Promise<SubtitleSegment> {
-    // implementation
-  }
-}
-```
-
----
-
-## 5. ASR Package
-
-Path:
-
-```text
+apps/desktop-cli/src/runtime_client/
 packages/asr-local/
 ```
 
-The real-ASR implementation is now a client/provider layer that talks to a local ASR runtime.
-The Dockerized ASR runtime itself is outside the browser and outside Chrome-extension code.
-
----
-
-## 5.1 MockASRProvider
-
-File:
-
-```text
-packages/asr-local/src/MockASRProvider.ts
-```
-
 Required behavior:
 
-- Implements `ASRProvider`
-- Returns fixed text by source language
-- Simulates roughly 200ms delay
-- Has no network, Docker, WSL2, Chrome, or Node-specific dependency
-
-Mock text:
-
-```ts
-const MOCK_ASR_TEXT = {
-  en: 'Hello everyone, today we are playing Minecraft.',
-  zh: '大家好，今天我们来玩 Minecraft。',
-  ja: '今日はマイクラをやります。',
-} as const;
-```
-
----
-
-## 5.2 LocalASRProvider
-
-File:
-
-```text
-packages/asr-local/src/LocalASRProvider.ts
-```
-
-Required behavior:
-
-- Implements `ASRProvider`
-- Calls a locally reachable ASR runtime
-- Accepts `SourceLanguage`
-- Supports uploaded audio first
-- Later supports tab audio chunks
-- Returns stable final text for MVP
-- Reports readable connection and runtime errors
+- Connect to a local `anime-whisper` runtime or a thin wrapper service in front of it
+- Accept fixed source language `ja`
+- Support file-based validation first
+- Later support live audio input
+- Return stable final text for MVP
+- Surface readable connection and runtime errors
 
 Required design rules:
 
-- The provider is a TypeScript client, not the ASR runtime itself
-- The provider must stay swappable with `MockASRProvider`
-- The provider must not bake ASR logic into the pipeline
-- The provider must not require Chrome APIs
+- The client is a Python or repository-local client layer, not the runtime itself
+- The client must remain swappable with mock or validation paths
+- The client must not bake UI logic into the runtime boundary
 
-Recommended config:
-
-```ts
-export interface LocalASRConfig {
-  baseUrl: string;
-  timeoutMs?: number;
-}
-```
-
-Recommended first integration contract:
-
-- File transcription over HTTP for web-demo validation
-- Streaming or chunked transcription later for extension integration
+If direct `anime-whisper` integration is awkward, a thin wrapper service may normalize the runtime interface, but the product-side client contract must stay stable.
 
 ---
 
-## 5.3 Local ASR Protocol
+## 6. Translator Client
 
-File:
-
-```text
-packages/asr-local/src/protocol.ts
-```
-
-Define shared request/response shapes for the local ASR runtime client.
-
-Recommended initial contract:
-
-```ts
-export interface TranscribeFileRequest {
-  sourceLang: SourceLanguage;
-}
-
-export interface TranscribeFileResponse {
-  text: string;
-  lang: SourceLanguage;
-  latencyMs?: number;
-}
-```
-
-Rules:
-
-- Keep protocol definitions runtime-agnostic
-- Do not place Docker- or WSL2-specific shell logic in the provider
-- Do not bind the client to a single ASR engine name in the shared protocol
-
----
-
-## 5.4 Audio Utilities
-
-File:
+Target path:
 
 ```text
-packages/asr-local/src/audioUtils.ts
-```
-
-Required utilities:
-
-- Decode uploaded audio file into audio data
-- Convert to `Float32Array`
-- Compute duration
-- Convert stereo to mono if needed
-- Resample if needed
-
-Keep utilities browser-compatible.
-
----
-
-## 6. Translator Package
-
-Path:
-
-```text
+apps/desktop-cli/src/translator_client/
 packages/translator/
 ```
 
----
+Required behavior:
 
-## 6.1 Prompt Builder
+- Use OpenAI-compatible Chat Completions
+- Use user-provided Base URL, API Key, and Model Name
+- Support timeout
+- Return readable errors
+- Never log API key
+- Translate only into `zh-CN`
+- Consume only final Japanese transcript in MVP
 
-File:
-
-```text
-packages/translator/src/prompt.ts
-```
-
-Required language maps:
-
-```ts
-export const SOURCE_LANGUAGE_NAMES = {
-  zh: 'Mandarin Chinese',
-  en: 'English',
-  ja: 'Japanese',
-} as const;
-
-export const TARGET_LANGUAGE_NAMES = {
-  'zh-CN': 'Simplified Chinese',
-  en: 'English',
-} as const;
-```
-
-Required system prompt:
-
-```text
-You are a professional live-stream subtitle translator.
-Translate the following spoken content from {sourceLanguageName} to {targetLanguageName}.
-Keep names, game titles, group names, and proper nouns unchanged when appropriate.
-Do not explain. Do not summarize. Output only the translated subtitle.
-```
+The prompt layer may remain centralized, but must reflect the fixed `ja -> zh-CN` direction.
 
 ---
 
-## 6.2 MockTranslator
+## 7. Overlay Window
 
-File:
+Target path:
 
 ```text
-packages/translator/src/MockTranslator.ts
+apps/desktop-cli/src/overlay_window/
 ```
 
 Required behavior:
 
-- Implements `TranslatorProvider`
-- Returns fixed text by target language
-- Has no network dependency
+- Create a local overlay window using PySide6
+- Render the latest subtitle
+- Optionally render the source text
+- Support basic style settings
+- Support hide and cleanup
 
-Mock text:
+Recommended window characteristics:
 
-```ts
-const MOCK_TRANSLATION_TEXT = {
-  'zh-CN': '大家好，今天我们来玩 Minecraft。',
-  en: 'Hello everyone, today we are playing Minecraft.',
-} as const;
-```
+- frameless
+- transparent background
+- always-on-top
+- bottom-aligned by default
 
----
-
-## 6.3 OpenAICompatibleTranslator
-
-File:
-
-```text
-packages/translator/src/OpenAICompatibleTranslator.ts
-```
-
-Required config:
-
-```ts
-export interface OpenAICompatibleConfig {
-  apiBaseUrl: string;
-  apiKey: string;
-  modelName: string;
-  timeoutMs?: number;
-}
-```
-
-Required behavior:
-
-1. Implements `TranslatorProvider`.
-2. Uses `fetch`.
-3. Uses `Authorization: Bearer {apiKey}`.
-4. Uses user-provided `modelName`.
-5. Uses prompt from `prompt.ts`.
-6. Supports timeout.
-7. Returns readable errors.
-8. Never logs API key.
-9. Must remain preset-agnostic and depend only on final `apiBaseUrl`, `apiKey`, and `modelName` values.
-
-Endpoint rule:
-
-- Prefer expecting `apiBaseUrl` to be the base origin plus API prefix, such as `https://api.example.com/v1`.
-- Translator appends `/chat/completions`.
-- If user provides a full `/chat/completions` URL, implementation may support it, but must document the behavior.
-
-Request shape:
-
-```ts
-{
-  model: modelName,
-  messages: [
-    { role: 'system', content: systemPrompt },
-    { role: 'user', content: text }
-  ],
-  temperature: 0.2
-}
-```
-
-Response handling:
-
-- Read `choices[0].message.content`
-- Trim whitespace
-- Return as `translatedText`
+The overlay window must not directly call the runtime or translator.
 
 ---
 
-## 7. Subtitle Package
+## 8. Audio Input
 
-Path:
+Target path:
 
 ```text
-packages/subtitle/
+apps/desktop-cli/src/audio_input/
 ```
+
+The product should support two conceptual input modes:
+
+- `file`
+- `live_audio`
+
+Rules:
+
+- `file` is the validation path
+- `live_audio` is the real product path
+- the controller and runtime client must not depend on a single hardcoded input source
+
+The MVP product target is live audio, but file-based validation is required earlier in the phase order.
 
 ---
 
-## 7.1 SubtitleStore
+## 9. Configuration
 
-File:
+The local product must support configuration for:
 
-```text
-packages/subtitle/src/SubtitleStore.ts
-```
+- API Base URL
+- API Key
+- Model Name
+- provider preset
+- show source text
+- font size
+- overlay position
+- background opacity
 
-Required behavior:
+The MVP does not require a user-facing editor for runtime endpoints unless scope expands later.
 
-- Add segment
-- Get latest segment
-- Get recent segments
-- Clear segments
-
-Use in-memory storage for MVP.
-
----
-
-## 7.2 Subtitle Timing
-
-File:
-
-```text
-packages/subtitle/src/subtitleTiming.ts
-```
-
-Required:
-
-```ts
-export const DEFAULT_SUBTITLE_VISIBLE_MS = 6000;
-```
-
-MVP can use fixed duration.
-
----
-
-## 8. Web Demo
-
-Path:
-
-```text
-apps/web-demo/
-```
-
-Purpose:
-
-- Fastest place to validate the pipeline
-- No Chrome permissions
-- No extension context
-- No tab capture complexity
-
-Components:
-
-- `LanguageSelector.tsx`
-- `AudioUploader.tsx`
-- `SettingsPanel.tsx`
-- `SubtitlePreview.tsx`
-- `DebugPanel.tsx`
-
-The settings UI may provide a provider preset selector that auto-fills recommended Base URL and Model Name values while still allowing manual editing.
-
-Web demo behavior by phase:
-
-### Phase 1
-
-- Use `MockASRProvider`
-- Use `MockTranslator`
-- Run pipeline end-to-end
-- Display source and translated text
-
-### Phase 2
-
-- Keep MockASR
-- Replace translator with `OpenAICompatibleTranslator`
-- Allow Base URL / API Key / Model Name input
-- Allow provider preset selection with custom override
-- Translate into `zh-CN` or `en`
-
-### Phase 3
-
-- Replace mock real-ASR path with `LocalASRProvider`
-- Upload audio file
-- Send audio to the local ASR runtime
-- Translate result
-- Display subtitle preview
-- Preserve mock/real ASR interchangeability
-
----
-
-## 9. Chrome Extension
-
-Path:
-
-```text
-apps/extension/
-```
-
----
-
-## 9.1 Manifest
-
-File:
-
-```text
-apps/extension/manifest.json
-```
-
-Required:
-
-- Manifest V3
-- Background service worker
-- Popup page
-- Options page
-- Content script
-- Offscreen document if needed
-- Permissions for storage and tab audio capture
-
-Expected permissions may include:
-
-```json
-{
-  "permissions": ["storage", "tabCapture", "offscreen", "scripting", "activeTab"],
-  "host_permissions": ["<all_urls>"]
-}
-```
-
-Keep permissions minimal where possible.
-
----
-
-## 9.2 Options Page
-
-Files:
-
-```text
-apps/extension/src/options/Options.tsx
-apps/extension/src/options/options.html
-```
-
-Must save to `chrome.storage.local`:
-
-- sourceLang
-- targetLang
-- providerPreset
-- apiBaseUrl
-- apiKey
-- modelName
-- showSourceText
-- fontSize
-- subtitlePosition
-- backgroundOpacity
-- debugEnabled
-
----
-
-## 9.3 Popup
-
-Files:
-
-```text
-apps/extension/src/popup/Popup.tsx
-apps/extension/src/popup/popup.html
-```
-
-Controls:
-
-- Start
-- Stop
-- Current status
-- Current language direction
-
-Popup sends messages to background. It must not run ASR or translation itself.
-
----
-
-## 9.4 Background
-
-Files:
-
-```text
-apps/extension/src/background/serviceWorker.ts
-apps/extension/src/background/messageRouter.ts
-```
-
-Responsibilities:
-
-- Receive popup messages
-- Load settings from `chrome.storage.local`
-- Coordinate offscreen document
-- Initialize pipeline
-- Route subtitle updates to content script
-- Handle stop/cleanup
-- Coordinate the local ASR provider client lifecycle
-
----
-
-## 9.5 Content Script and Overlay
-
-Files:
-
-```text
-apps/extension/src/content/contentScript.ts
-apps/extension/src/content/overlay.ts
-apps/extension/src/content/overlay.css
-```
-
-Responsibilities:
-
-- Inject subtitle overlay
-- Render translated text
-- Optionally render source text
-- Apply style settings
-- Receive subtitle update messages
-
-Overlay default style:
-
-- Bottom center
-- High z-index
-- Semi-transparent dark background
-- Readable font size
-- Does not block major page interactions
-
----
-
-## 9.6 Offscreen Audio Capture
-
-Files:
-
-```text
-apps/extension/src/offscreen/offscreen.html
-apps/extension/src/offscreen/offscreen.ts
-apps/extension/src/audio-worklet/captureProcessor.ts
-```
-
-Responsibilities:
-
-- Use `chrome.tabCapture` in offscreen context
-- Create `AudioContext`
-- Route audio back to output so the user can still hear the stream
-- Use `AudioWorklet` to emit audio chunks
-- Send audio chunks to background or the local ASR provider client layer
+Configuration must stay local and must not be committed.
 
 ---
 
 ## 10. Implementation Phases
 
-### Phase 0 — Infrastructure
+### Phase 0 — Python Infrastructure
 
 Deliver:
 
-- pnpm workspace
-- root TypeScript config
-- package scaffolding
-- shared package with types
+- Python project scaffolding
+- CLI entrypoint
+- config structure
+- local module layout
 
 Validate:
 
 ```bash
-pnpm install
 pnpm build
 pnpm typecheck
 ```
 
----
+Use actual Python validation commands once the project adds them.
 
-### Phase 1 — Mock Pipeline + Web Demo
+### Phase 1 — Mock Pipeline + File Validation
 
 Deliver:
 
-- Mock ASR
-- Mock Translator
-- Pipeline
-- Web demo UI
-- End-to-end mock flow
+- Mock ASR path
+- Mock translator path
+- File-based validation flow
+- Subtitle controller skeleton
 
 Validate:
 
 ```bash
-pnpm --filter web-demo dev
 pnpm --filter core test
+pnpm --filter web-demo dev
 ```
-
----
 
 ### Phase 2 — OpenAI-compatible Translator
 
@@ -969,11 +323,9 @@ Deliver:
 
 - Prompt builder
 - OpenAI-compatible translator
-- Web demo LLM settings
+- LLM settings handling
 - Provider preset selector with custom override
 - Error display
-
-Phase 2 must preserve direct manual input for `apiBaseUrl`, `apiKey`, and `modelName` even when presets are available.
 
 Validate:
 
@@ -982,17 +334,13 @@ pnpm --filter translator test
 pnpm --filter web-demo dev
 ```
 
----
-
-### Phase 3 — Local ASR in Web Demo
+### Phase 3 — anime-whisper Client + File Input
 
 Deliver:
 
-- `packages/asr-local/`
-- Local ASR provider client
-- Audio upload decode path
-- Source language parameter
-- ASR -> translation -> preview flow
+- `anime-whisper` client
+- File input decode path
+- Final transcript -> translation -> preview flow
 
 Validate:
 
@@ -1003,107 +351,81 @@ pnpm --filter web-demo dev
 
 Manual validation:
 
-- Upload English audio in an ASR-capable environment
-- Upload Japanese audio in an ASR-capable environment
-- Optional: upload Mandarin Chinese audio
+- Validate Japanese audio file flow in an ASR-capable environment
 
----
-
-### Phase 4 — Extension Skeleton
+### Phase 4 — Local Overlay Window
 
 Deliver:
 
-- Manifest V3
-- Popup
-- Options
-- Content overlay
-- Fake subtitle render
-
-Validate:
-
-```bash
-pnpm --filter extension build
-```
+- PySide6 overlay window
+- Latest subtitle rendering
+- Optional source text rendering
+- Basic wrapping
+- Hide and cleanup behavior
 
 Manual validation:
 
-- Load unpacked extension
-- Open popup
-- Open options
-- Render fake subtitle on a page
+- Start local UI shell
+- Inject test subtitle
+- Confirm latest subtitle display
+- Confirm hide and cleanup
 
----
-
-### Phase 5 — Tab Audio Capture
+### Phase 5 — Live Audio Input
 
 Deliver:
 
-- Offscreen document
-- `chrome.tabCapture`
-- `AudioContext`
-- `AudioWorklet`
-- Audio chunk logs
-- Audio routed back to output
-- Audio chunk handoff to the local ASR provider client layer
-
-Validate:
-
-```bash
-pnpm --filter extension build
-```
+- Live audio input path
+- Audio event handoff to runtime client
+- Readable audio input errors
 
 Manual validation:
 
-- Start on Twitch / YouTube
-- User still hears audio
-- Debug logs show audio chunks
+- Start live audio session
+- Confirm audio reaches runtime-client boundary
+- Confirm runtime or input errors are readable
 
----
-
-### Phase 6 — Full MVP Integration
+### Phase 6 — Full Local CLI + Docker Compose Loop
 
 Deliver:
 
-- Tab audio -> local ASR runtime
-- ASR result -> OpenAI-compatible translation
-- Translation -> content overlay
+- CLI session startup
+- Live audio -> `anime-whisper`
+- Final transcript -> translator
+- Translation -> local overlay window
 - Stop cleanup
 
 Manual validation:
 
 ```text
-Open Twitch / YouTube livestream
-  -> Click Start
-  -> Capture tab audio
-  -> Send audio to local ASR runtime
-  -> Recognize selected source language
-  -> Translate into selected target language
-  -> Display subtitle overlay
-  -> Click Stop
-  -> Processing stops
+Start the local CLI
+  -> Start a session
+  -> Capture live audio
+  -> Send audio to local anime-whisper runtime
+  -> Receive final Japanese transcript
+  -> Translate into zh-CN
+  -> Display latest subtitle in the local overlay window
+  -> Stop
+  -> Processing stops and resources are released
 ```
 
 ---
 
-## 11. First Recommended Agent Task
+## 11. Deferred V2 Enhancements
 
-Use this as the first coding task:
+The following ideas are accepted future directions, but are not part of the current implementation scope:
 
-```text
-Read AGENTS.md, AGENTS-2.md, target.md, and implementation.md.
+- LLM correction before translation
+- Terminology / glossary injection
+- Incremental subtitles driven by partial transcript events
+- Formal bilingual subtitle mode
+- Rolling subtitle history
+- Advanced multi-line subtitle layout behavior
 
-Implement Phase 0 and Phase 1 only:
-- Create the pnpm monorepo structure.
-- Create packages/shared with language/audio/asr/translation/subtitle/settings types.
-- Create MockASRProvider.
-- Create MockTranslator.
-- Create the Pipeline with dependency injection.
-- Create a Vite React web-demo that runs the mock pipeline.
+The current MVP architecture should leave room for these later, but must not implement them now.
 
-Do not implement Chrome extension audio capture.
-Do not implement real local ASR yet.
-Do not implement OpenAI-compatible translator yet.
-Do not add unsupported languages or deferred features.
+For the current MVP, subtitle behavior remains:
 
-Run available install/build/typecheck commands and summarize changed files and validation results.
-```
+- final transcript only
+- latest single subtitle only
+- `ja -> zh-CN` only
+- `anime-whisper` as the real local-ASR target

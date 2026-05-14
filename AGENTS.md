@@ -10,19 +10,19 @@
 ## 1. Primary Principles
 
 1. **`target.md` is the source of truth for product scope.**
-   - Feature boundaries, supported languages, product behavior, and non-goals are defined there.
+   - Product shape, supported languages, user-facing behavior, and non-goals are defined there.
    - Do not add features outside `target.md`.
 
 2. **`implementation.md` is the source of truth for engineering shape.**
-   - File paths, package boundaries, interfaces, and phase deliverables are defined there.
-   - Do not invent alternate project structure without user approval.
+   - Package boundaries, runtime responsibilities, module layout, and phase deliverables are defined there.
+   - Do not invent a different architecture without user approval.
 
 3. **`AGENTS-2.md` is the source of truth for this workstation's execution limits.**
-   - If a task requires Docker, WSL2, or real local-ASR runtime work on this machine, stop and report that constraint.
+   - If a task requires Docker, WSL2, or real `anime-whisper` runtime work on this machine, stop and report that constraint.
 
 4. **Mock first, real implementation second.**
-   - Every major module must have a mock implementation before the real implementation.
-   - The mock pipeline must run end-to-end before real ASR or real LLM integration.
+   - Every major module must have a mock or validation path before the real runtime path.
+   - File-based and mocked validation must work before live-audio runtime integration.
 
 5. **Small changes only.**
    - Complete one phase or one clearly scoped task at a time.
@@ -38,22 +38,19 @@
 
 The MVP supports only:
 
-### Source languages
+### Source language
 
 | Language | Code |
 |---|---|
-| Mandarin Chinese | `zh` |
-| English | `en` |
 | Japanese | `ja` |
 
-### Target languages
+### Target language
 
 | Language | Code |
 |---|---|
 | Simplified Chinese | `zh-CN` |
-| English | `en` |
 
-Default direction:
+Only supported direction:
 
 ```text
 ja -> zh-CN
@@ -64,9 +61,16 @@ The MVP must not implement:
 - Automatic language detection
 - Korean support
 - Japanese output subtitles
-- User glossary / terminology table
-- Platform caption extraction
 - Cloud ASR
+- Browser extension delivery
+- Browser page-injected subtitle overlay
+- LLM correction before translation
+- User glossary / terminology table
+- Terminology / glossary injection into prompts
+- Incremental subtitle updates
+- Formal bilingual subtitle mode
+- Rolling subtitle history
+- Advanced multi-line subtitle layout modes
 - Speaker diarization
 - AI dubbing
 - Subtitle export
@@ -75,6 +79,7 @@ The MVP must not implement:
 - Payment or subscription system
 
 Do not add placeholders, enum values, TODOs, routes, feature flags, UI controls, or hidden configuration for these deferred features.
+Do not implement any V2 feature unless the user explicitly revises the project specification documents first.
 
 ---
 
@@ -87,7 +92,7 @@ Step 1. Understand
   - Read AGENTS.md, AGENTS-2.md, target.md, and implementation.md.
   - Locate the phase or feature being requested.
   - If the user request conflicts with target.md, state the conflict.
-  - If the task requires local-ASR runtime work on this machine, state the AGENTS-2.md conflict.
+  - If the task requires real anime-whisper runtime work on this machine, state the AGENTS-2.md conflict.
 
 Step 2. Scope
   - List files to be added / modified / removed.
@@ -96,8 +101,8 @@ Step 2. Scope
 
 Step 3. Implement
   - Make the smallest working change.
-  - Keep reusable logic outside Chrome-specific modules.
-  - Follow provider interfaces and dependency injection.
+  - Keep UI, runtime-client, translator, and subtitle responsibilities separated.
+  - Follow provider or client interfaces and dependency injection.
 
 Step 4. Validate
   - Run relevant commands.
@@ -115,108 +120,113 @@ Step 5. Report
 
 ## 4. Coding Constraints
 
-### 4.1 TypeScript
+### 4.1 Primary Implementation Language
 
-- Use TypeScript everywhere.
-- Enable strict mode.
-- Do not use `any`.
-- Use `unknown` plus type narrowing when necessary.
-- Use `async/await` instead of `.then().catch()` chains.
+- The main product path is Python.
+- The local desktop workflow must be built around Python CLI orchestration and a local overlay window.
+- Existing TypeScript code may remain only where the product specs still allow it, such as the web demo validation tool.
+
+### 4.2 Python
+
+- Use Python 3.11+ unless the user explicitly changes the runtime target.
+- Use type hints.
 - Keep modules small and readable.
+- Prefer dataclasses or small typed models for runtime events and subtitle state.
+- Use `asyncio` where asynchronous runtime or translator coordination is required.
 
-### 4.2 Language Types
+### 4.3 Language Types
 
-- All language codes must come from `packages/shared`.
-- Do not duplicate `SourceLanguage` or `TargetLanguage` definitions.
-- Do not scatter raw language string literals across business logic.
-- Do not add unsupported language codes such as `ko`, `fr`, `de`, etc.
+- All product logic must treat the language direction as fixed.
+- Do not reintroduce source-language or target-language selectors into the main product path.
+- Do not add unsupported language codes such as `ko`, `en`, `zh`, `fr`, or `de`.
 
 Allowed language codes:
 
 ```ts
-type SourceLanguage = 'zh' | 'en' | 'ja';
-type TargetLanguage = 'zh-CN' | 'en';
+type SourceLanguage = 'ja';
+type TargetLanguage = 'zh-CN';
 ```
 
-### 4.3 API Key Safety
+### 4.4 API Key Safety
 
 API keys may exist only in:
 
 - User-entered runtime UI state
-- `chrome.storage.local` in the extension
-- `.env.local` for local web-demo development, if needed, and only if ignored by Git
+- Local config or environment storage that is ignored by Git
+- A local desktop settings store if the implementation later adds one
 
 API keys must never be:
 
 - Hardcoded in source files
 - Hardcoded in tests
 - Committed in config files
-- Printed with `console.log`
-- Included in debug panels
-- Included in error messages
+- Printed with `console.log`, `print`, or equivalent debug output
+- Included in overlay text
+- Included in raw error messages shown to users
 
-Provider presets may exist as a UI convenience layer for OpenAI-compatible services, but they must follow these rules:
+Provider presets may exist as a convenience layer for OpenAI-compatible services, but they must follow these rules:
 
 - `custom` must always exist
 - Provider presets may auto-fill recommended Base URL and default Model Name values
 - Provider presets must not remove the user's ability to manually edit Base URL and Model Name
 - API keys must remain user-provided and must never be bundled into preset definitions
 
-### 4.4 Provider Architecture
+### 4.5 Provider and Client Architecture
 
-ASR implementations must implement `ASRProvider`.
+The real ASR target is `anime-whisper`, but the product code must still separate:
 
-Translator implementations must implement `TranslatorProvider`.
-
-The pipeline must receive providers via dependency injection.
+- audio input
+- runtime client
+- translator client
+- subtitle controller
+- overlay window
 
 Forbidden:
 
-```ts
-// Forbidden inside Pipeline
-new LocalASRProvider()
-new OpenAICompatibleTranslator()
+```py
+# Forbidden inside a controller or orchestration layer
+from anime_whisper_runtime import EmbeddedRuntime
+embedded_runtime = EmbeddedRuntime()
 ```
 
 Allowed:
 
-```ts
-new Pipeline({
-  asrProvider,
-  translatorProvider,
-  settings,
-});
+```py
+controller = SubtitleController(
+    runtime_client=runtime_client,
+    translator_client=translator_client,
+    overlay=overlay_window,
+    settings=settings,
+)
 ```
 
-### 4.5 Mock Providers
+### 4.6 Mock and Validation Paths
 
-Mock providers must:
+Mock or validation paths must:
 
-- Be implemented before real providers
-- Not call network APIs
+- Be implemented before the real runtime path is considered complete
 - Not depend on Docker or WSL2
-- Not depend on Chrome APIs
-- Cover all supported language values
-- Be usable in tests and the web demo
+- Be usable in tests and the file-based validation flow
+- Preserve the fixed `ja -> zh-CN` product direction
 
-Mock providers should not be imported by production extension runtime unless explicitly selected for development.
+### 4.7 Overlay Window Rules
 
-### 4.6 Chrome Extension Rules
+- The MVP subtitle UI is a local overlay window, not a browser page overlay.
+- The overlay window must only render subtitle state and receive update events.
+- The overlay window must not directly run ASR or translation.
+- MVP behavior is fixed to:
+  - final transcript only
+  - latest single subtitle only
+  - translated text first
+  - optional source text
+  - basic wrapping only
 
-- Use Manifest V3.
-- `chrome.tabCapture` must run from the offscreen document path.
-- Popup must not perform ASR or translation.
-- Content script must only render overlay UI and receive subtitle messages.
-- Background service worker coordinates lifecycle and message routing.
-- Runtime messages must go through `src/background/messageRouter.ts` or equivalent central routing.
-- Extension settings must use `chrome.storage.local`.
+### 4.8 Error Handling
 
-### 4.7 Error Handling
-
-- Network requests must use `try/catch`.
-- Local ASR provider calls must use `try/catch`.
-- Audio capture and chunk handoff must report readable errors.
-- Errors must propagate to UI in a user-readable way.
+- Runtime client requests must use readable error handling.
+- Translator requests must use readable error handling.
+- Audio input failures must surface readable user errors.
+- Errors must propagate to the CLI or local UI in a user-readable way.
 - Do not swallow failures silently.
 
 ---
@@ -227,14 +237,13 @@ Mock providers should not be imported by production extension runtime unless exp
 
 | Path | Permission | Purpose |
 |---|---|---|
-| `apps/web-demo/` | read/write | Web demo |
-| `apps/extension/` | read/write | Chrome extension |
+| `apps/desktop-cli/` | read/write | Main local product path |
+| `apps/web-demo/` | read/write | File-based validation tool |
 | `packages/shared/` | read/write | Shared types and constants only |
-| `packages/core/` | read/write | Pipeline |
-| `packages/asr-local/` | read/write | Local ASR providers and protocol |
-| `packages/asr-browser/` | read/write | Legacy browser-ASR migration area only |
-| `packages/translator/` | read/write | Translator providers |
-| `packages/subtitle/` | read/write | Subtitle state/timing |
+| `packages/core/` | read/write | Pipeline or shared orchestration logic |
+| `packages/asr-local/` | read/write | Local ASR client and protocol |
+| `packages/translator/` | read/write | Translator client code |
+| `packages/subtitle/` | read/write | Subtitle state and timing |
 
 ### Markdown documents
 
@@ -249,11 +258,10 @@ Agents must not modify them unless the user explicitly asks to update project sp
 
 ### Forbidden file operations
 
-- Do not delete existing `index.ts` files without updating imports.
-- Do not place runtime logic in `packages/shared` except simple constants.
-- Do not move Chrome-specific code into `packages/core`.
-- Do not move local ASR implementation into the translator package.
-- Do not place cloud- or backend-only product logic into extension content scripts.
+- Do not place runtime UI logic in `packages/shared`.
+- Do not move `anime-whisper` runtime implementation into repository-local product logic.
+- Do not restore Chrome-extension runtime code as a primary delivery path.
+- Do not place translator logic inside the overlay window module.
 
 ---
 
@@ -269,7 +277,7 @@ pnpm typecheck
 pnpm lint
 pnpm test
 
-# web demo
+# web demo validation tool
 pnpm --filter web-demo dev
 pnpm --filter web-demo build
 
@@ -282,35 +290,31 @@ pnpm --filter translator test
 
 # ASR package
 pnpm --filter asr-local test
-
-# extension
-pnpm --filter extension build
 ```
 
-If the project uses different script names, prefer existing scripts over inventing new ones.
+If the repository later adds Python-native commands, prefer the actual project scripts over inventing new ones.
 
 ---
 
 ## 7. Phase Checklists
 
-### Phase 0 — Infrastructure
+### Phase 0 — Python Infrastructure
 
 Before reporting complete:
 
-- [ ] pnpm workspace exists
-- [ ] root `tsconfig.base.json` exists
-- [ ] package-level tsconfig files inherit root config
-- [ ] `packages/shared` defines language/providerPreset/settings/audio/asr/translation/subtitle types
-- [ ] `pnpm build` or equivalent passes
+- [ ] Main local product structure exists
+- [ ] Python project configuration exists
+- [ ] Shared type or event definitions exist where required
+- [ ] `pnpm build` or equivalent validation passes for remaining repo-owned tooling
 
-### Phase 1 — Mock Pipeline + Web Demo
+### Phase 1 — Mock Pipeline + File Validation
 
 Before reporting complete:
 
-- [ ] `MockASRProvider` covers `zh`, `en`, `ja`
-- [ ] `MockTranslator` covers `zh-CN`, `en`
+- [ ] Mock ASR covers `ja`
+- [ ] Mock translation covers `zh-CN`
 - [ ] Core pipeline uses dependency injection
-- [ ] Web demo can run mock pipeline end-to-end
+- [ ] File-based validation can run end-to-end
 - [ ] No API key is needed for mock mode
 - [ ] No network dependency exists in mock mode
 
@@ -318,50 +322,50 @@ Before reporting complete:
 
 Before reporting complete:
 
-- [ ] `OpenAICompatibleTranslator` implements `TranslatorProvider`
-- [ ] Prompt is centralized in `prompt.ts`
-- [ ] User can supply Base URL, API Key, and Model Name manually or through a provider preset that auto-fills recommended values
+- [ ] OpenAI-compatible translator implements the required translator interface
+- [ ] Prompt logic is centralized
+- [ ] User can supply Base URL, API Key, and Model Name manually or through a provider preset
 - [ ] API key is not hardcoded or logged
 - [ ] Network failures return readable UI errors
-- [ ] Translation supports only `zh-CN` and `en` targets
+- [ ] Translation supports only `zh-CN`
 
-### Phase 3 — Local ASR
-
-Before reporting complete:
-
-- [ ] `LocalASRProvider` implements `ASRProvider`
-- [ ] Source language parameter is passed to ASR
-- [ ] Uploaded audio works in web demo
-- [ ] Mock and real ASR are interchangeable
-- [ ] Manual local-ASR verification is performed only in an ASR-capable environment
-
-### Phase 4 — Chrome Extension Skeleton
+### Phase 3 — anime-whisper Client + File Input
 
 Before reporting complete:
 
-- [ ] Manifest V3 configured
-- [ ] Popup opens
-- [ ] Options page saves settings
-- [ ] Content script injects overlay
-- [ ] Fake subtitle can render on a page
+- [ ] Real local ASR integration targets `anime-whisper`
+- [ ] Source language parameter is fixed to `ja`
+- [ ] File-based validation works with the real runtime client shape
+- [ ] Mock and real runtime-client paths are interchangeable at the orchestration boundary
+- [ ] Manual real-runtime verification is performed only in an ASR-capable environment
 
-### Phase 5 — Tab Audio Capture
-
-Before reporting complete:
-
-- [ ] `chrome.tabCapture` runs from offscreen document
-- [ ] User still hears tab audio
-- [ ] AudioWorklet emits chunks
-- [ ] Debug logs confirm audio chunk flow
-
-### Phase 6 — Full MVP
+### Phase 4 — Local Overlay Window
 
 Before reporting complete:
 
-- [ ] Twitch / YouTube page can start translation
-- [ ] Tab audio reaches local ASR
-- [ ] ASR output reaches translator
-- [ ] Translated subtitles reach overlay
+- [ ] Local overlay window opens
+- [ ] Latest subtitle can render
+- [ ] Optional source text can render
+- [ ] Basic wrapping works
+- [ ] Hide and cleanup behavior works
+
+### Phase 5 — Live Audio Input
+
+Before reporting complete:
+
+- [ ] Live audio input reaches the runtime client boundary
+- [ ] User can still hear audio if the chosen capture strategy requires passthrough
+- [ ] Debug logs confirm audio event flow
+- [ ] Audio input failures surface readable errors
+
+### Phase 6 — Full Local CLI Loop
+
+Before reporting complete:
+
+- [ ] CLI can start a session
+- [ ] Live audio reaches the local `anime-whisper` runtime
+- [ ] Final ASR output reaches translator
+- [ ] Latest translated subtitle reaches the local overlay window
 - [ ] Stop releases resources
 - [ ] No cloud ASR is required
 
@@ -373,12 +377,12 @@ Stop and ask the user when any of the following occurs:
 
 1. The request conflicts with `target.md`.
 2. The request requires adding a deferred feature.
-3. ASR runtime choice requires a major architecture tradeoff.
+3. Runtime choice requires a major architecture tradeoff.
 4. Shared type definitions need breaking changes.
-5. Pipeline interface needs breaking changes.
+5. Pipeline or controller interfaces need breaking changes.
 6. A validation command fails more than three times.
-7. A required dependency is no longer maintained or cannot run in the target local-ASR runtime environment.
-8. A task requires real Docker/WSL2/local-ASR runtime work on this machine in violation of `AGENTS-2.md`.
+7. A required dependency is no longer maintained or cannot run in the target runtime environment.
+8. A task requires real Docker/WSL2/`anime-whisper` runtime work on this machine in violation of `AGENTS-2.md`.
 9. A requested change requires modifying `AGENTS.md`, `AGENTS-2.md`, `target.md`, or `implementation.md`.
 
 Use this format:
@@ -399,11 +403,12 @@ Never:
 - Hardcode a real API key
 - Print a user API key
 - Add unsupported languages
+- Implement deferred V2 features in this repository scope
 - Add a glossary feature in MVP
 - Add cloud ASR in MVP
-- Add TODOs for out-of-scope features
-- Bypass provider interfaces
-- Put ASR/translation inside content script
+- Restore browser-extension delivery as the primary product path
+- Bypass provider or client interfaces
+- Put ASR or translation logic inside the overlay window
 - Claim success without validation
 - Modify project spec documents without explicit instruction
 - Claim real local-ASR validation from this machine
@@ -429,84 +434,36 @@ Notes / Remaining work:
 - ...
 ```
 
-Do not claim that manual browser behavior was verified unless it was actually tested.
+Do not claim that live runtime behavior was verified unless it was actually tested.
 
 ---
 
-## 11. Multi-Mode Debug and Release Policy
+## 11. Web Demo Policy
 
-The repository keeps both mock and real providers during debug and validation stages.
+The web demo remains in the repository only as a development and validation tool.
 
-### 11.1 Debug-stage provider policy
+Rules:
 
-During web-demo and integration debugging, the project may expose explicit mode selection for both ASR and Translator providers.
+1. It is not the final product form.
+2. It must remain fixed to `ja -> zh-CN`.
+3. It must support file-based validation.
+4. It must not redefine the main product architecture.
 
-Allowed provider modes:
+## 12. V2 Deferral Rule
 
-- ASR:
-  - `MockASRProvider`
-  - `LocalASRProvider`
+The following ideas are explicitly deferred to V2 and must not be implemented in the current MVP:
 
-- Translator:
-  - `MockTranslator`
-  - `OpenAICompatibleTranslator`
+- LLM correction before translation
+- Terminology / glossary injection
+- Incremental subtitle updates
+- Formal bilingual subtitle mode
+- Rolling subtitle history
+- Advanced multi-line subtitle layout modes
 
-Agents may implement explicit mode selection in debug-stage UI when needed to validate phase boundaries, isolate failures, or compare provider behavior.
+Current MVP subtitle behavior remains:
 
-This creates four valid debug-stage combinations:
+- `ja -> zh-CN` only
+- `anime-whisper` as the real local-ASR target
+- final transcript only
+- latest single subtitle only
 
-- Mock ASR + Mock Translator
-- Mock ASR + OpenAI-compatible Translator
-- Local ASR + Mock Translator
-- Local ASR + OpenAI-compatible Translator
-
-The purpose of these combinations is validation and fault isolation only.
-They must not expand product scope beyond the MVP defined in `target.md`.
-
-### 11.2 Isolation requirements
-
-When multiple modes exist:
-
-1. Provider selection must remain explicit.
-2. Provider composition must still go through the shared provider interfaces.
-3. `Pipeline` must continue to receive providers through dependency injection.
-4. Mock and real providers must remain swappable without changing pipeline internals.
-5. Mock providers must stay usable for tests and regression checks.
-6. API keys must only be required when the real translator mode is selected.
-7. No mock-only behavior may leak into the final production extension runtime unless explicitly enabled for development.
-
-### 11.3 Phase interpretation rule
-
-If a later phase introduces a real provider that would otherwise replace a mock provider from an earlier phase, agents must preserve the earlier mock provider path when the user explicitly requests continued debug comparability.
-
-In that case:
-
-- phase validation may be satisfied by adding selectable provider modes rather than deleting the earlier mock path
-- agents must report any resulting UI or architecture complexity before implementation if the change affects current phase boundaries
-
-### 11.4 Release branch cleanup rule
-
-Before final MVP release, extension-focused delivery must produce a clean real-provider branch or equivalent clean copy.
-
-Release-cleanup requirements:
-
-1. Remove debug-only mock selection from the production extension path.
-2. Remove test-only mock runtime wiring from the production extension path.
-3. Keep only the real MVP chain for shipped extension behavior:
-   - browser tab audio
-   - real local ASR
-   - real OpenAI-compatible translator
-   - real subtitle overlay
-4. Mock providers may remain in the repository for tests and development, but must not remain user-selectable in the production extension build unless the user explicitly requests a development build.
-5. When this cleanup is performed, agents should create either:
-   - a dedicated branch for release cleanup, or
-   - a separate clean copy, if the user explicitly requests that workflow
-
-### 11.5 Conflict rule
-
-If an existing phase description conflicts with the debug-stage multi-mode policy above, agents must stop and ask the user whether to prioritize:
-
-- strict single-path phase replacement, or
-- debug-stage multi-mode preservation
-
-Do not resolve that conflict silently.

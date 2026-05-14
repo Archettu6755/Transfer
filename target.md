@@ -8,65 +8,58 @@
 
 ## 1. Product Positioning
 
-Build a Chrome extension for livestream translation.
+Build a Windows-first local desktop subtitle tool for Japanese VTuber livestream translation into Simplified Chinese.
 
-The MVP captures the current browser tab audio, sends audio to a local ASR runtime running in Docker on WSL2, translates the transcript through a user-provided OpenAI-compatible LLM API, and renders subtitles on the livestream page.
+The MVP runs as a local Python CLI workflow, connects to an `anime-whisper` runtime running through Docker or docker-compose, translates final Japanese transcript through a user-provided OpenAI-compatible LLM API, and renders subtitles in a local overlay window.
 
 Core value:
 
 - **Local-first ASR:** no cloud ASR is required.
 - **User-owned LLM credentials:** the user enters their own API Base URL, API Key, and Model Name.
-- **Composable architecture:** ASR and Translator are provider-based so they can be replaced later.
-- **Debuggable integration:** mock and real providers may coexist during validation.
+- **Composable architecture:** audio input, runtime client, translator, subtitle controller, and overlay window remain separated.
+- **Practical local UX:** the product is a local tool, not a browser extension.
 
 Core product flow:
 
 ```text
-Current tab audio
-  -> Local WSL2/Docker ASR runtime
-  -> Source-language text
+Live audio
+  -> local anime-whisper runtime
+  -> final Japanese text
   -> OpenAI-compatible LLM translation
-  -> Subtitle overlay on page
+  -> latest Chinese subtitle in a local overlay window
 ```
 
 ---
 
 ## 2. MVP Language Scope
 
-### 2.1 Source languages
-
-The user manually selects one source language.
+### 2.1 Source language
 
 | Display name | Code |
 |---|---|
-| Mandarin Chinese | `zh` |
-| English | `en` |
 | Japanese | `ja` |
 
-Default:
+Fixed:
 
 ```text
 sourceLang = ja
 ```
 
-### 2.2 Target languages
-
-The user manually selects one target language.
+### 2.2 Target language
 
 | Display name | Code |
 |---|---|
 | Simplified Chinese | `zh-CN` |
-| English | `en` |
 
-Default:
+Fixed:
 
 ```text
 targetLang = zh-CN
 ```
 
-### 2.3 Default direction
+### 2.3 Supported direction
 
-The default direction is:
+The only supported direction is:
 
 ```text
 Japanese audio -> Simplified Chinese subtitles
@@ -76,83 +69,73 @@ Japanese audio -> Simplified Chinese subtitles
 
 ## 3. Product Scope
 
-## 3.1 Web Demo
+### 3.1 Local CLI Product
 
-Before the Chrome extension is fully integrated, the project must provide a web demo.
+The final MVP product is a local desktop workflow.
+
+The product should provide:
+
+- CLI startup
+- Local runtime status and readable error reporting
+- Live audio input
+- Local Docker or docker-compose `anime-whisper` integration
+- OpenAI-compatible LLM translation
+- Local overlay subtitle window
+
+### 3.2 Web Demo
+
+The repository may keep a web demo, but only as a development and validation tool.
 
 Purpose:
 
-- Validate the pipeline without Chrome extension permissions.
-- Test mock ASR and mock translation.
-- Test OpenAI-compatible translation.
-- Test local ASR on uploaded audio.
-- Preserve explicit provider-mode combinations for debug isolation.
+- Validate the pipeline without live-audio complexity
+- Test mock ASR and mock translation
+- Test OpenAI-compatible translation
+- Test file-based `anime-whisper` client integration
 
 The web demo should include:
 
-- Source language selector
-- Target language selector
 - Audio file uploader
 - LLM settings form
 - Provider preset selector for OpenAI-compatible endpoints
 - Subtitle preview
 - Debug panel
 
----
-
-## 3.2 Chrome Extension
-
-The final MVP product is a Chrome extension.
-
-The extension should provide:
-
-- Popup with Start / Stop controls
-- Options page for settings
-- Current tab audio capture
-- Local WSL2/Docker ASR integration
-- OpenAI-compatible LLM translation
-- Subtitle overlay injected into Twitch / YouTube pages
+The web demo is not the final product delivery form.
 
 ---
 
 ## 4. User-facing Features
 
-### 4.1 Start / Stop
+### 4.1 CLI Start / Stop
 
-The popup must provide:
+The local product must provide:
 
-- Start button
-- Stop button
-- Current status
-- Current language direction
+- A start command or equivalent CLI entrypoint
+- A stop path or equivalent lifecycle cleanup
+- Current status output
+- Fixed language direction (`ja -> zh-CN`)
 
-Start should begin the full pipeline.
+Start should begin the local subtitle pipeline.
 
-Stop should stop audio capture, stop ASR/translation processing, and clean up resources.
+Stop should stop audio capture or processing, stop ASR and translation work, and clean up resources.
 
----
+### 4.2 Local Configuration
 
-### 4.2 Settings
+The product must allow the user to configure:
 
-The Options page must allow the user to configure:
-
-- Source language: `zh`, `en`, `ja`
-- Target language: `zh-CN`, `en`
 - Provider preset for supported OpenAI-compatible services
 - API Base URL
 - API Key
 - Model Name
 - Show source text on subtitle overlay
 - Font size
-- Subtitle position
+- Overlay position
 - Background opacity
-- Debug mode
 
-Settings must persist locally.
+Configuration must stay local.
 
-The MVP does not require a user-facing ASR endpoint editor unless the product scope is explicitly expanded later.
-
----
+The MVP does not require a user-facing runtime endpoint editor unless the product scope is explicitly expanded later.
 
 ### 4.3 LLM API Configuration
 
@@ -177,54 +160,36 @@ Preset behavior:
 
 The product must not hardcode provider-specific credentials.
 
-The product should work with any endpoint that follows the expected OpenAI-compatible request/response shape.
-Provider presets are a convenience layer only and must not remove support for custom OpenAI-compatible endpoints.
+### 4.4 Subtitle Overlay Window
 
----
-
-### 4.4 Subtitle Overlay
-
-The subtitle overlay must be injected into the livestream page.
+The subtitle UI must be a local overlay window.
 
 Minimum behavior:
 
-- Show translated subtitle text.
-- Optionally show source text.
-- Default to bottom-center placement.
-- Use readable font size.
-- Use a semi-transparent background.
-- Avoid covering too much of the video.
-- Support basic style settings.
+- Show the latest translated subtitle text
+- Optionally show source text
+- Default to bottom placement
+- Use readable font size
+- Use a semi-transparent background
+- Avoid covering too much of the screen
+- Support basic style settings
+- Use basic text wrapping only
 
-Supported overlay positions for MVP:
+The MVP does not include rolling history, formal bilingual mode, or advanced multi-line layout logic.
 
-```text
-bottom
-top
-floating
-```
-
-Default display:
-
-```text
-translated text only
-```
-
----
-
-### 4.5 Debug Panel
+### 4.5 Debug Information
 
 The product should expose basic debug information to help troubleshoot early builds.
 
 Useful fields:
 
-- Source language
-- Target language
-- ASR provider
-- Translator provider
+- Fixed source language (`ja`)
+- Fixed target language (`zh-CN`)
+- Runtime client state
+- Translator client state
 - Last ASR text
 - Last translated text
-- Audio capture state
+- Audio input state
 - Last error
 
 This can be simple and developer-oriented in the MVP.
@@ -238,10 +203,16 @@ The following must not appear in MVP UI, settings, hidden flags, TODOs, or pre-c
 - Automatic language detection
 - Korean recognition or output
 - Japanese subtitle output
-- User glossary / terminology table
-- Platform caption extraction
-- Google Live Caption integration
 - Cloud ASR
+- Browser extension delivery
+- Browser page-injected subtitle overlay
+- LLM correction before translation
+- User glossary / terminology table
+- Terminology / glossary injection
+- Incremental subtitle updates
+- Formal bilingual subtitle mode
+- Rolling subtitle history
+- Advanced multi-line subtitle layout behavior
 - Speaker diarization
 - AI dubbing
 - Subtitle export
@@ -255,29 +226,42 @@ The following must not appear in MVP UI, settings, hidden flags, TODOs, or pre-c
 
 The MVP should feel:
 
-- Lightweight
 - Local-first
-- Simple to configure
+- Practical
 - Easy to start and stop
-- Non-intrusive on video pages
 - Clear when errors occur
+- Lightweight in presentation
 
-It should not feel like a full translation platform yet.
+It should not feel like a browser plugin or a full translation platform.
 
-The first product milestone is only to prove the livestream translation loop with local ASR and OpenAI-compatible translation.
+The first product milestone is only to prove the local subtitle loop with `anime-whisper` and OpenAI-compatible translation.
 
 ---
 
-## 7. MVP Acceptance Criteria
+## 7. Post-MVP / V2 Enhancements
+
+The following are accepted future directions, but are not part of the current MVP:
+
+- LLM correction of ASR text before translation
+- Terminology / glossary injection for translation consistency
+- Incremental subtitle updates driven by partial transcript events
+- Formal bilingual subtitle mode
+- Rolling subtitle history
+- Advanced multi-line subtitle layout behavior
+
+These items must not be treated as current MVP acceptance criteria.
+
+---
+
+## 8. MVP Acceptance Criteria
 
 The MVP is complete when:
 
-1. The extension can be loaded into Chrome.
-2. The user can configure source language, target language, API Base URL, API Key, and Model Name, either manually or through a provider preset that auto-fills recommended values.
-3. The user can open a Twitch or YouTube livestream and click Start.
-4. The extension captures current tab audio.
-5. The local WSL2/Docker ASR runtime produces source-language text.
-6. The translator converts source text into `zh-CN` or `en`.
-7. The content script displays translated subtitles on the page.
-8. The user can stop the translation process.
-9. The MVP requires no cloud ASR, but does require a local WSL2/Docker ASR runtime.
+1. The local CLI can start.
+2. The user can configure API Base URL, API Key, and Model Name, either manually or through a provider preset that auto-fills recommended values.
+3. The application can connect to the local `anime-whisper` runtime.
+4. Live audio can be processed into final Japanese source-language text.
+5. The translator converts source text into `zh-CN`.
+6. The local overlay window displays the latest translated subtitle.
+7. The user can stop the translation process.
+8. The MVP requires no cloud ASR, but does require a local Docker or docker-compose `anime-whisper` runtime.
