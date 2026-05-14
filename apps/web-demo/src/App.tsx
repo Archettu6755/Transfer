@@ -17,7 +17,6 @@ import {
 import { MockTranslator, OpenAICompatibleTranslator } from 'translator';
 import { AudioUploader } from './components/AudioUploader';
 import { DebugPanel } from './components/DebugPanel';
-import { LanguageSelector } from './components/LanguageSelector';
 import {
   SettingsPanel,
   type ASRMode,
@@ -162,9 +161,9 @@ export default function App({
 
   return (
     <main style={{ fontFamily: 'sans-serif', margin: '0 auto', maxWidth: 960, padding: 24 }}>
-      <h1>Browser Live Translator Web Demo</h1>
-      <p>Debug mode supports mock and local provider combinations for both ASR and translation.</p>
-      <LanguageSelector settings={settings} onChange={setSettings} />
+      <h1>Local Subtitle Validation Demo</h1>
+      <p>Fixed direction: ja -&gt; zh-CN.</p>
+      <p>Debug mode keeps mock and local file-validation ASR paths for regression checks.</p>
       <AudioUploader
         selectedFile={selectedFile}
         selectedFileName={selectedFileName}

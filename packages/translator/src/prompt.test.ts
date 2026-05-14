@@ -4,14 +4,11 @@ import { buildTranslationSystemPrompt, SOURCE_LANGUAGE_NAMES, TARGET_LANGUAGE_NA
 describe('prompt', () => {
   it('defines the supported language display names', () => {
     expect(SOURCE_LANGUAGE_NAMES).toEqual({
-      zh: 'Mandarin Chinese',
-      en: 'English',
       ja: 'Japanese'
     });
 
     expect(TARGET_LANGUAGE_NAMES).toEqual({
-      'zh-CN': 'Simplified Chinese',
-      en: 'English'
+      'zh-CN': 'Simplified Chinese'
     });
   });
 

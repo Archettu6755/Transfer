@@ -63,8 +63,8 @@ describe('Pipeline', () => {
     const segment = await pipeline.process(
       { id: 'audio-2', data: new Float32Array(), sampleRate: 16_000 },
       {
-        sourceLang: 'en',
-        targetLang: 'en',
+        sourceLang: 'ja',
+        targetLang: 'zh-CN',
         providerPreset: 'custom',
         apiBaseUrl: '',
         apiKey: '',
@@ -79,8 +79,8 @@ describe('Pipeline', () => {
     );
 
     expect(segment).toMatchObject({
-      source: 'Hello everyone, today we are playing Minecraft.',
-      translated: 'Hello everyone, today we are playing Minecraft.',
+      source: '今日はマイクラをやります。',
+      translated: '今日はマイクラをやります。',
       status: 'error'
     });
   });

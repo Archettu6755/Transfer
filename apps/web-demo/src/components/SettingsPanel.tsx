@@ -69,7 +69,7 @@ export function SettingsPanel({
       </label>
       <p>
         {asrMode === 'local'
-          ? 'Local ASR mode is scaffolded for an external faster-whisper runtime and requires an uploaded audio file.'
+          ? 'Local ASR mode stays as a file-validation path and requires an uploaded audio file.'
           : 'Mock ASR keeps speech recognition offline and deterministic for regression checks.'}
       </p>
       <p>

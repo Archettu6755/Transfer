@@ -175,7 +175,7 @@ describe('routeExtensionMessage', () => {
     const currentState = advanceLocalASRSessionState(DEFAULT_LOCAL_ASR_SESSION_STATE, {
       type: 'start-requested',
       streamId: 'stream-1',
-      sourceLang: 'en'
+      sourceLang: 'ja'
     });
     const nextState = advanceLocalASRSessionState(currentState, {
       type: 'chunk-produced',

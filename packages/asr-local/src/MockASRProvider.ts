@@ -1,8 +1,6 @@
 import type { ASRProvider, ASRResult, AudioInput, SourceLanguage } from 'shared';
 
 const MOCK_ASR_TEXT: Record<SourceLanguage, string> = {
-  en: 'Hello everyone, today we are playing Minecraft.',
-  zh: '大家好，今天我们来玩 Minecraft。',
   ja: '今日はマイクラをやります。'
 };
 

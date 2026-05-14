@@ -3,8 +3,6 @@ import type { SourceLanguage } from 'shared';
 import type { TranscriptEvent } from './transcriptCoordinator';
 
 const MOCK_TRANSCRIPT_TEXT: Record<SourceLanguage, string> = {
-  zh: '大家好，今天我们来玩 Minecraft。',
-  en: 'Hello everyone, today we are playing Minecraft.',
   ja: '今日はマイクラをやります。'
 };
 

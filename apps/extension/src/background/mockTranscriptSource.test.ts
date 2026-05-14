@@ -11,8 +11,6 @@ describe('createMockTranscriptSource', () => {
   });
 
   it.each([
-    ['zh', '大家好，今天我们来玩 Minecraft。'],
-    ['en', 'Hello everyone, today we are playing Minecraft.'],
     ['ja', '今日はマイクラをやります。']
   ] as const)('emits a partial, final, and completed sequence for %s', async (sourceLang, text) => {
     const events: Array<{ type: string; text?: string }> = [];

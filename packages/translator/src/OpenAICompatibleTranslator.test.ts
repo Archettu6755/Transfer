@@ -62,7 +62,7 @@ describe('OpenAICompatibleTranslator', () => {
       modelName: 'test-model'
     });
 
-    await expect(translator.translate('hello', 'en', 'zh-CN')).rejects.toThrow(
+    await expect(translator.translate('今日はマイクラをやります。', 'ja', 'zh-CN')).rejects.toThrow(
       'Translation request failed (401 Unauthorized): Bad API key'
     );
   });

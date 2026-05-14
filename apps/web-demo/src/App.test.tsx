@@ -23,14 +23,14 @@ describe('App', () => {
     async recognize(audio: AudioInput): Promise<{
       id: string;
       text: string;
-      lang: 'en';
+      lang: 'ja';
       timestamp: number;
       latencyMs: number;
     }> {
       return {
         id: audio.id,
-        text: 'Hello from local ASR.',
-        lang: 'en',
+        text: 'ローカルASRからのテキストです。',
+        lang: 'ja',
         timestamp: Date.now(),
         latencyMs: 10
       };
@@ -73,7 +73,7 @@ describe('App', () => {
     await user.upload(screen.getByLabelText('Audio File'), file);
     await user.click(screen.getByRole('button', { name: 'Run Translation' }));
 
-    expect(await screen.findByText('Hello from local ASR.')).toBeTruthy();
+    expect(await screen.findByText('ローカルASRからのテキストです。')).toBeTruthy();
     expect(await screen.findByText('大家好，今天我们来玩 Minecraft。')).toBeTruthy();
   });
 
@@ -109,7 +109,7 @@ describe('App', () => {
     await user.type(screen.getByLabelText('Model Name'), 'test-model');
     await user.click(screen.getByRole('button', { name: 'Run Translation' }));
 
-    expect(await screen.findByText('Hello from local ASR.')).toBeTruthy();
+    expect(await screen.findByText('ローカルASRからのテキストです。')).toBeTruthy();
     expect(await screen.findByText('大家好，今天我们来玩 Minecraft。')).toBeTruthy();
   });
 

@@ -1,14 +1,11 @@
 import type { SourceLanguage, TargetLanguage } from 'shared';
 
 export const SOURCE_LANGUAGE_NAMES: Record<SourceLanguage, string> = {
-  zh: 'Mandarin Chinese',
-  en: 'English',
   ja: 'Japanese'
 };
 
 export const TARGET_LANGUAGE_NAMES: Record<TargetLanguage, string> = {
-  'zh-CN': 'Simplified Chinese',
-  en: 'English'
+  'zh-CN': 'Simplified Chinese'
 };
 
 export function buildTranslationSystemPrompt(
