@@ -13,6 +13,7 @@ export interface UserSettings {
   subtitlePosition: 'top' | 'bottom' | 'floating';
   backgroundOpacity: number;
   debugEnabled: boolean;
+  debugTranscriptSource: 'local-asr-stream' | 'mock';
 }
 
 export const DEFAULT_USER_SETTINGS: UserSettings = {
@@ -26,5 +27,6 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   fontSize: 24,
   subtitlePosition: 'bottom',
   backgroundOpacity: 0.65,
-  debugEnabled: false
+  debugEnabled: false,
+  debugTranscriptSource: 'local-asr-stream'
 };

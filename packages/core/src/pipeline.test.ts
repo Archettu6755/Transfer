@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { MockASRProvider } from 'asr-local';
+import { MockASRProvider } from '../../asr-local/src/MockASRProvider';
 import { Pipeline } from './pipeline';
 import type {
   SourceLanguage,
   TargetLanguage,
   TranslationResult,
   TranslatorProvider
-} from 'shared';
+} from '../../shared/src';
 
 class FailingTranslator implements TranslatorProvider {
   async translate(
@@ -20,7 +20,7 @@ class FailingTranslator implements TranslatorProvider {
 
 describe('Pipeline', () => {
   it('produces a translated subtitle segment using injected providers', async () => {
-    const { MockTranslator } = await import('translator');
+    const { MockTranslator } = await import('../../translator/src/MockTranslator');
     const pipeline = new Pipeline({
       asrProvider: new MockASRProvider(),
       translatorProvider: new MockTranslator()
@@ -39,7 +39,8 @@ describe('Pipeline', () => {
         fontSize: 24,
         subtitlePosition: 'bottom',
         backgroundOpacity: 0.65,
-        debugEnabled: false
+        debugEnabled: false,
+        debugTranscriptSource: 'local-asr-stream'
       }
     );
 
@@ -72,7 +73,8 @@ describe('Pipeline', () => {
         fontSize: 24,
         subtitlePosition: 'bottom',
         backgroundOpacity: 0.65,
-        debugEnabled: false
+        debugEnabled: false,
+        debugTranscriptSource: 'local-asr-stream'
       }
     );
 

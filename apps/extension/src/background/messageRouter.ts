@@ -1,29 +1,36 @@
 import {
   DEFAULT_LOCAL_ASR_SESSION_STATE,
-  DEFAULT_USER_SETTINGS,
   type LocalASRSessionState,
   type SourceLanguage,
-  type TargetLanguage,
+  type SubtitleSegment,
   type UserSettings
 } from 'shared';
 
-export type ExtensionStatus = 'idle' | 'running' | 'stopped';
+export type ExtensionStatus = 'idle' | 'running' | 'stopped' | 'error';
 
 export type LocalASRSessionAction =
   | { type: 'start-requested'; streamId: string; sourceLang: SourceLanguage }
   | { type: 'capture-started'; streamId: string }
   | { type: 'chunk-produced'; streamId: string; chunkId: number }
+  | { type: 'partial-transcript'; streamId: string; text: string }
+  | { type: 'final-transcript'; streamId: string; text: string }
   | { type: 'stream-opened'; streamId: string }
+  | { type: 'reconnect-attempted'; streamId: string; attempt: number }
   | { type: 'stop-requested'; streamId: string }
   | { type: 'stopped'; streamId: string }
   | { type: 'failed'; streamId: string; error: string };
 
-export interface FakeSubtitlePayload {
-  sourceLang: SourceLanguage;
-  targetLang: TargetLanguage;
+export interface LatestSubtitlePayload {
+  segmentId: string;
+  sourceLang: SubtitleSegment['sourceLang'];
+  targetLang: SubtitleSegment['targetLang'];
   sourceText: string;
   translatedText: string;
   showSourceText: boolean;
+  fontSize: number;
+  subtitlePosition: UserSettings['subtitlePosition'];
+  backgroundOpacity: number;
+  status: SubtitleSegment['status'];
 }
 
 export type ExtensionRuntimeMessage =
@@ -32,8 +39,8 @@ export type ExtensionRuntimeMessage =
   | { type: 'stop-preview' };
 
 export type ContentRuntimeMessage =
-  | { type: 'show-fake-subtitle'; payload: FakeSubtitlePayload }
-  | { type: 'hide-fake-subtitle' };
+  | { type: 'show-latest-subtitle'; payload: LatestSubtitlePayload }
+  | { type: 'hide-subtitle' };
 
 export type ExtensionMessage = ExtensionRuntimeMessage | ContentRuntimeMessage;
 
@@ -42,18 +49,21 @@ export type ExtensionRuntimeResponse =
       ok: true;
       status: ExtensionStatus;
       sourceLang?: SourceLanguage;
-      targetLang?: TargetLanguage;
+      targetLang?: SubtitleSegment['targetLang'];
+      error?: string;
     }
   | { ok: false; error: string };
 
 export interface MessageRouterDependencies {
   getSettings: () => Promise<UserSettings>;
   getActiveTabId: () => Promise<number | null>;
+  getSessionTabId: () => Promise<number | null>;
   sendMessageToTab: (tabId: number, message: ContentRuntimeMessage) => Promise<void>;
-  startLocalCapture: (input: { tabId: number; sourceLang: SourceLanguage }) => Promise<void>;
+  startLocalCapture: (input: { tabId: number; settings: UserSettings }) => Promise<void>;
   stopLocalCapture: () => Promise<void>;
   setStatus: (status: ExtensionStatus) => Promise<void>;
   getStatus: () => Promise<ExtensionStatus>;
+  getLastError: () => Promise<string>;
 }
 
 export function advanceLocalASRSessionState(
@@ -75,7 +85,10 @@ export function advanceLocalASRSessionState(
         streamId: action.streamId,
         sourceLang: action.sourceLang,
         lastChunkId: null,
-        lastError: ''
+        lastPartialText: '',
+        lastFinalText: '',
+        lastError: '',
+        reconnectAttempt: 0
       };
     case 'capture-started':
       return {
@@ -88,10 +101,29 @@ export function advanceLocalASRSessionState(
         status: 'streaming',
         lastChunkId: action.chunkId
       };
+    case 'partial-transcript':
+      return {
+        ...currentState,
+        status: 'streaming',
+        lastPartialText: action.text
+      };
+    case 'final-transcript':
+      return {
+        ...currentState,
+        status: 'streaming',
+        lastFinalText: action.text,
+        lastPartialText: ''
+      };
     case 'stream-opened':
       return {
         ...currentState,
         status: 'streaming'
+      };
+    case 'reconnect-attempted':
+      return {
+        ...currentState,
+        status: 'reconnecting',
+        reconnectAttempt: action.attempt
       };
     case 'stop-requested':
       return {
@@ -114,73 +146,54 @@ export async function routeExtensionMessage(
   dependencies: MessageRouterDependencies
 ): Promise<ExtensionRuntimeResponse> {
   if (message.type === 'get-status') {
-    const [settings, status] = await Promise.all([
+    const [settings, status, error] = await Promise.all([
       dependencies.getSettings(),
-      dependencies.getStatus()
+      dependencies.getStatus(),
+      dependencies.getLastError()
     ]);
 
     return {
       ok: true,
       status,
       sourceLang: settings.sourceLang,
-      targetLang: settings.targetLang
+      targetLang: settings.targetLang,
+      ...(error ? { error } : {})
     };
   }
 
-  const tabId = await dependencies.getActiveTabId();
+  const currentStatus = await dependencies.getStatus();
 
-  if (tabId === null) {
+  if (message.type === 'start-preview' && currentStatus === 'running') {
     return {
       ok: false,
-      error: 'No active tab is available for subtitle preview.'
+      error: 'Translation is already running for the current session.'
     };
   }
 
   if (message.type === 'start-preview') {
+    const tabId = await dependencies.getActiveTabId();
+
+    if (tabId === null) {
+      return {
+        ok: false,
+        error: 'No active tab is available for subtitle preview.'
+      };
+    }
+
     const settings = await dependencies.getSettings();
     await dependencies.startLocalCapture({
       tabId,
-      sourceLang: settings.sourceLang
-    });
-    await dependencies.sendMessageToTab(tabId, {
-      type: 'show-fake-subtitle',
-      payload: buildFakeSubtitlePayload(settings)
+      settings
     });
     await dependencies.setStatus('running');
     return { ok: true, status: 'running' };
   }
 
+  const sessionTabId = await dependencies.getSessionTabId();
   await dependencies.stopLocalCapture();
-  await dependencies.sendMessageToTab(tabId, { type: 'hide-fake-subtitle' });
+  if (sessionTabId !== null) {
+    await dependencies.sendMessageToTab(sessionTabId, { type: 'hide-subtitle' });
+  }
   await dependencies.setStatus('stopped');
   return { ok: true, status: 'stopped' };
-}
-
-function buildFakeSubtitlePayload(settings: UserSettings): FakeSubtitlePayload {
-  return {
-    sourceLang: settings.sourceLang,
-    targetLang: settings.targetLang,
-    sourceText: getMockSourceText(settings.sourceLang),
-    translatedText: getMockTranslatedText(settings.targetLang),
-    showSourceText: settings.showSourceText
-  };
-}
-
-function getMockSourceText(sourceLang: SourceLanguage): string {
-  const textByLanguage: Record<SourceLanguage, string> = {
-    zh: '大家好，今天我们来玩 Minecraft。',
-    en: 'Hello everyone, today we are playing Minecraft.',
-    ja: '今日はマイクラをやります。'
-  };
-
-  return textByLanguage[sourceLang] ?? getMockSourceText(DEFAULT_USER_SETTINGS.sourceLang);
-}
-
-function getMockTranslatedText(targetLang: TargetLanguage): string {
-  const textByLanguage: Record<TargetLanguage, string> = {
-    'zh-CN': '大家好，今天我们来玩 Minecraft。',
-    en: 'Hello everyone, today we are playing Minecraft.'
-  };
-
-  return textByLanguage[targetLang] ?? textByLanguage[DEFAULT_USER_SETTINGS.targetLang];
 }

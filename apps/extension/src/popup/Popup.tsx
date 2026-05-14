@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { SourceLanguage, TargetLanguage } from 'shared';
 
-type PopupStatus = 'idle' | 'running' | 'stopped';
+type PopupStatus = 'idle' | 'running' | 'stopped' | 'error';
 
 interface PopupState {
   status: PopupStatus;
@@ -18,7 +18,7 @@ const DEFAULT_POPUP_STATE: PopupState = {
   error: ''
 };
 
-function Popup() {
+export function Popup() {
   const [state, setState] = useState<PopupState>(DEFAULT_POPUP_STATE);
 
   useEffect(() => {
@@ -40,7 +40,7 @@ function Popup() {
       status: response.status,
       sourceLang: response.sourceLang,
       targetLang: response.targetLang,
-      error: ''
+      error: response.error ?? ''
     });
   }
 
@@ -80,8 +80,6 @@ function Popup() {
 
 const container = document.getElementById('root');
 
-if (!container) {
-  throw new Error('Popup root container was not found.');
+if (container) {
+  createRoot(container).render(<Popup />);
 }
-
-createRoot(container).render(<Popup />);

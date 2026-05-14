@@ -184,6 +184,23 @@ function Options() {
             onChange={(event) => setSettings({ ...settings, debugEnabled: event.target.checked })}
           />
         </label>
+        {settings.debugEnabled ? (
+          <label>
+            Debug Transcript Source
+            <select
+              value={settings.debugTranscriptSource}
+              onChange={(event) =>
+                setSettings({
+                  ...settings,
+                  debugTranscriptSource: event.target.value as UserSettings['debugTranscriptSource']
+                })
+              }
+            >
+              <option value="local-asr-stream">Local ASR Stream</option>
+              <option value="mock">Mock Transcript</option>
+            </select>
+          </label>
+        ) : null}
       </section>
       <div style={{ marginTop: 16 }}>
         <button onClick={() => void saveSettings()} type="button">

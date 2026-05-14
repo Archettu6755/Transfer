@@ -4,21 +4,39 @@ import {
   DEFAULT_USER_SETTINGS,
   type OffscreenRuntimeEvent,
   type OffscreenRuntimeMessage,
-  type SourceLanguage,
   type UserSettings
 } from 'shared';
 import {
   advanceLocalASRSessionState,
+  type ContentRuntimeMessage,
   routeExtensionMessage,
   type ExtensionRuntimeMessage,
   type ExtensionStatus
 } from './messageRouter';
+import { SubtitleStore } from 'subtitle';
+import { OpenAICompatibleTranslator } from 'translator';
+import { createLocalAsrTranscriptBridge } from './localAsrTranscriptBridge';
+import {
+  createMockTranscriptSource,
+  type MockTranscriptSource
+} from './mockTranscriptSource';
+import {
+  TranscriptSessionCoordinator,
+  type TranscriptEvent
+} from './transcriptCoordinator';
 
 const SETTINGS_STORAGE_KEY = 'userSettings';
 const OFFSCREEN_DOCUMENT_PATH = 'src/offscreen/offscreen.html';
 const CAPTURE_SAMPLE_RATE = 16_000;
 let currentStatus: ExtensionStatus = 'idle';
+let currentLastError = '';
+let currentSessionTabId: number | null = null;
 let currentLocalAsrSessionState: LocalASRSessionState = DEFAULT_LOCAL_ASR_SESSION_STATE;
+let currentTranscriptCoordinator: TranscriptSessionCoordinator | null = null;
+let currentMockTranscriptSource: MockTranscriptSource | null = null;
+let currentLocalAsrTranscriptBridge:
+  | ReturnType<typeof createLocalAsrTranscriptBridge>
+  | null = null;
 
 chrome.runtime.onInstalled.addListener(() => {
   void ensureStoredSettings();
@@ -42,13 +60,18 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
   void routeExtensionMessage(message, {
     getSettings: ensureStoredSettings,
     getActiveTabId,
+    getSessionTabId: async () => currentSessionTabId,
     sendMessageToTab,
     startLocalCapture,
     stopLocalCapture,
     setStatus: async (status) => {
       currentStatus = status;
+      if (status === 'running' || status === 'stopped') {
+        currentLastError = '';
+      }
     },
-    getStatus: async () => currentStatus
+    getStatus: async () => currentStatus,
+    getLastError: async () => currentLastError
   })
     .then((response) => {
       sendResponse(response);
@@ -56,6 +79,8 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
     .catch((error: unknown) => {
       const message =
         error instanceof Error ? error.message : 'Background routing failed.';
+      currentStatus = 'error';
+      currentLastError = message;
       sendResponse({ ok: false, error: message });
     });
 
@@ -84,15 +109,48 @@ async function getActiveTabId(): Promise<number | null> {
 
 async function sendMessageToTab(
   tabId: number,
-  message: { type: 'show-fake-subtitle'; payload: unknown } | { type: 'hide-fake-subtitle' }
+  message: ContentRuntimeMessage
 ): Promise<void> {
   await chrome.tabs.sendMessage(tabId, message);
 }
 
 async function startLocalCapture(input: {
   tabId: number;
-  sourceLang: SourceLanguage;
+  settings: UserSettings;
 }): Promise<void> {
+  currentSessionTabId = input.tabId;
+  currentLastError = '';
+  currentTranscriptCoordinator = new TranscriptSessionCoordinator({
+    tabId: input.tabId,
+    settings: input.settings,
+    translatorProvider: new OpenAICompatibleTranslator({
+      apiBaseUrl: input.settings.apiBaseUrl,
+      apiKey: input.settings.apiKey,
+      modelName: input.settings.modelName
+    }),
+    subtitleStore: new SubtitleStore(),
+    sendMessageToTab,
+    setLastError: (error) => {
+      currentLastError = error;
+    }
+  });
+
+  if (shouldUseMockTranscriptSource(input.settings)) {
+    currentMockTranscriptSource = createMockTranscriptSource({
+      sourceLang: input.settings.sourceLang,
+      onEvent: (event) => {
+        void handleTranscriptEvent(event);
+      }
+    });
+    await currentMockTranscriptSource.start();
+    return;
+  }
+
+  currentLocalAsrTranscriptBridge = createLocalAsrTranscriptBridge({
+    onTranscriptEvent: (event) => {
+      void handleTranscriptEvent(event);
+    }
+  });
   await ensureOffscreenDocument();
 
   const mediaStreamId = await chrome.tabCapture.getMediaStreamId({
@@ -103,19 +161,25 @@ async function startLocalCapture(input: {
   currentLocalAsrSessionState = advanceLocalASRSessionState(DEFAULT_LOCAL_ASR_SESSION_STATE, {
     type: 'start-requested',
     streamId,
-    sourceLang: input.sourceLang
+    sourceLang: input.settings.sourceLang
   });
 
   await chrome.runtime.sendMessage({
     type: 'start-local-asr-capture',
     streamId,
     mediaStreamId,
-    sourceLang: input.sourceLang,
+    sourceLang: input.settings.sourceLang,
     sampleRate: CAPTURE_SAMPLE_RATE
   } satisfies OffscreenRuntimeMessage);
 }
 
 async function stopLocalCapture(): Promise<void> {
+  await currentMockTranscriptSource?.stop();
+  currentMockTranscriptSource = null;
+  currentLocalAsrTranscriptBridge = null;
+  await currentTranscriptCoordinator?.stop();
+  currentTranscriptCoordinator = null;
+
   const streamId = currentLocalAsrSessionState.streamId;
 
   if (streamId) {
@@ -130,9 +194,11 @@ async function stopLocalCapture(): Promise<void> {
       reason: 'User stopped capture.'
     } satisfies OffscreenRuntimeMessage);
 
+    currentSessionTabId = null;
     return;
   }
 
+  currentSessionTabId = null;
   await closeOffscreenDocument();
 }
 
@@ -162,7 +228,10 @@ function handleOffscreenRuntimeEvent(message: OffscreenRuntimeEvent): void {
       streamId: message.streamId,
       error: message.error
     });
-    currentStatus = 'stopped';
+    currentStatus = 'error';
+    currentLastError = message.error;
+    currentSessionTabId = null;
+    void handleTranscriptEvent({ type: 'failed', error: message.error });
     void closeOffscreenDocument();
     console.error('[extension] local ASR capture failed', message.error);
     return;
@@ -198,6 +267,30 @@ function handleOffscreenChunkMessage(message: OffscreenRuntimeMessage): void {
     `sampleRate=${message.sampleRate}`,
     `frames=${message.data.length}`
   );
+}
+
+async function handleTranscriptEvent(event: TranscriptEvent): Promise<void> {
+  if (!currentTranscriptCoordinator) {
+    return;
+  }
+
+  await currentTranscriptCoordinator.handleEvent(event);
+
+  if (event.type === 'completed') {
+    currentStatus = 'stopped';
+    currentSessionTabId = null;
+    currentMockTranscriptSource = null;
+    currentLocalAsrTranscriptBridge = null;
+    currentTranscriptCoordinator = null;
+  }
+
+  if (event.type === 'failed') {
+    currentStatus = 'error';
+    currentSessionTabId = null;
+    currentMockTranscriptSource = null;
+    currentLocalAsrTranscriptBridge = null;
+    currentTranscriptCoordinator = null;
+  }
 }
 
 function isExtensionRuntimeMessage(message: unknown): message is ExtensionRuntimeMessage {
@@ -279,4 +372,8 @@ function createStreamId(): string {
   }
 
   return `stream-${Date.now()}`;
+}
+
+function shouldUseMockTranscriptSource(settings: UserSettings): boolean {
+  return settings.debugEnabled && settings.debugTranscriptSource === 'mock';
 }

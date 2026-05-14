@@ -1,16 +1,20 @@
-import type { FakeSubtitlePayload } from '../background/messageRouter';
+import type { LatestSubtitlePayload } from '../background/messageRouter';
 
 const OVERLAY_ID = 'browser-live-translator-overlay';
 
-export function showFakeSubtitle(payload: FakeSubtitlePayload): void {
+export function showLatestSubtitle(payload: LatestSubtitlePayload): void {
   const overlay = ensureOverlay();
   overlay.dataset.visible = 'true';
+  overlay.dataset.position = payload.subtitlePosition;
   overlay.innerHTML = '';
+  overlay.style.fontSize = `${payload.fontSize}px`;
+  overlay.style.backgroundColor = `rgba(0, 0, 0, ${payload.backgroundOpacity})`;
 
   if (payload.showSourceText) {
     const sourceLine = document.createElement('div');
     sourceLine.className = 'browser-live-translator-source';
     sourceLine.textContent = payload.sourceText;
+    sourceLine.style.fontSize = `${Math.max(12, Math.round(payload.fontSize * 0.75))}px`;
     overlay.appendChild(sourceLine);
   }
 
@@ -20,7 +24,7 @@ export function showFakeSubtitle(payload: FakeSubtitlePayload): void {
   overlay.appendChild(translatedLine);
 }
 
-export function hideFakeSubtitle(): void {
+export function hideSubtitle(): void {
   const overlay = document.getElementById(OVERLAY_ID);
 
   if (overlay) {

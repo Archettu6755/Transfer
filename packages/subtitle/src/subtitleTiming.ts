@@ -1,1 +1,1 @@
-export {};
+export const DEFAULT_SUBTITLE_VISIBLE_MS = 6_000;

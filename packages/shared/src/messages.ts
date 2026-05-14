@@ -5,6 +5,7 @@ export type LocalASRSessionStatus =
   | 'starting'
   | 'capturing'
   | 'streaming'
+  | 'reconnecting'
   | 'stopping'
   | 'error';
 
@@ -13,7 +14,10 @@ export interface LocalASRSessionState {
   streamId: string | null;
   sourceLang: SourceLanguage | null;
   lastChunkId: number | null;
+  lastPartialText: string;
+  lastFinalText: string;
   lastError: string;
+  reconnectAttempt: number;
 }
 
 export type OffscreenRuntimeMessage =
@@ -67,5 +71,8 @@ export const DEFAULT_LOCAL_ASR_SESSION_STATE: LocalASRSessionState = {
   streamId: null,
   sourceLang: null,
   lastChunkId: null,
-  lastError: ''
+  lastPartialText: '',
+  lastFinalText: '',
+  lastError: '',
+  reconnectAttempt: 0
 };

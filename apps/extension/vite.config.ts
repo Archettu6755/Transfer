@@ -21,7 +21,9 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      shared: new URL('../../packages/shared/src/index.ts', import.meta.url).pathname
+      shared: new URL('../../packages/shared/src/index.ts', import.meta.url).pathname,
+      subtitle: new URL('../../packages/subtitle/src/index.ts', import.meta.url).pathname,
+      translator: new URL('../../packages/translator/src/index.ts', import.meta.url).pathname
     }
   },
   build: {
