@@ -25,6 +25,7 @@ def run_start(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--font", "-f")
     parser.add_argument("--font-size", "-s", type=int)
     parser.add_argument("--bg", "-b", type=float)
+    parser.add_argument("--audio-source", choices=["test-tone", "loopback"], default="test-tone")
     parser.add_argument("--source-text", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(list(argv) if argv is not None else None)
@@ -73,7 +74,10 @@ def run_start(argv: Sequence[str] | None = None) -> int:
             else DEFAULT_BACKGROUND_OPACITY
         ),
     )
-    audio_config = AudioInputConfig(source="test-tone", duration_ms=500)
+    audio_config = AudioInputConfig(
+        source=args.audio_source,
+        duration_ms=500 if args.audio_source == "test-tone" else None,
+    )
     return run_configured_session(
         config=config,
         audio_config=audio_config,

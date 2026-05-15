@@ -140,6 +140,20 @@ desktop-cli start --model GLM-4.7-FlashX
 desktop-cli start --model deepseek-v4-flash
 ```
 
+#### `--audio-source`
+
+选择音频输入源：
+
+```powershell
+desktop-cli start --audio-source test-tone
+desktop-cli start --audio-source loopback
+```
+
+说明：
+
+- `test-tone`（默认）：使用合成测试音频，不需要真实声卡，适合验证流程
+- `loopback`：通过 WASAPI Loopback 捕获系统音频输出（浏览器、本地播放器等），不接受麦克风输入
+
 #### `--font`, `-f`
 
 临时覆盖字体族名：
@@ -183,7 +197,8 @@ desktop-cli start --dry-run
 ### Example
 
 ```powershell
-desktop-cli start --provider zhipu --model GLM-4.7-FlashX --font "Microsoft YaHei" --font-size 36 --bg 0.6 --source-text
+desktop-cli start --provider zhipu --model GLM-4.7-FlashX --audio-source test-tone --font "Microsoft YaHei" --font-size 36 --bg 0.6 --source-text
+desktop-cli start --provider deepseek --audio-source loopback --font "Microsoft YaHei" --source-text
 ```
 
 ---
@@ -237,9 +252,11 @@ DESKTOP_CLI_DEEPSEEK_API_KEY=your-key
 已接入的 canonical provider 包括：
 
 - `zhipu`
-- `deepseek`
-- `qwen`
+- `deepseek`（推荐）
+- `qwen`（推荐）
 - `kimi`
+
+推荐使用 deepseek 或 qwen。
 
 已支持的典型 alias 包括：
 

@@ -15,4 +15,4 @@ def test_provider_model_table_contains_default_and_flagship_entries() -> None:
 
 def test_default_and_flagship_models_are_exposed_by_helper_functions() -> None:
     assert get_default_model("deepseek").model_name == "deepseek-v4-flash"
-    assert get_flagship_model("qwen").model_name == "qwen-max"
+    assert get_flagship_model("qwen").model_name == "Qwen-MT-Plus"

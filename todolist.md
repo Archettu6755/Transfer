@@ -90,9 +90,9 @@
 
 ## Phase 6 — Full Local CLI Loop
 - [x] 实现 CLI session lifecycle
-- [ ] 连接：
-  - [ ] live audio
-  - [ ] `anime-whisper`
+- [x] 连接：
+  - [x] live audio（`--audio-source loopback` / test-tone）
+  - [ ] `anime-whisper`（blocked by AGENTS-2.md）
   - [x] translator
   - [x] subtitle controller
   - [x] overlay window
@@ -101,9 +101,9 @@
   - [x] latest subtitle replaces previous subtitle
   - [x] translation failure shows source fallback
   - [x] stop releases all resources
-- [ ] 迁移当前可复用控制流：
-  - [ ] `transcriptCoordinator` 思路
-  - [ ] subtitle auto-hide 思路
+- [x] 迁移当前可复用控制流：
+  - [x] `transcriptCoordinator` 思路（Python SubtitleController 覆盖 MVP 范围）
+  - [x] subtitle auto-hide 思路（asyncio 定时器，默认 5 秒）
   - [x] latest-single-subtitle 策略
 - [x] 不再以 extension background/session 作为主闭环
 
@@ -126,7 +126,7 @@
 - [x] Python CLI 最小启动成功
 - [x] overlay window 最小显示成功
 - [x] runtime client 文件输入验证成功
-- [ ] live audio 接入后完整本地链路验证成功
+- [ ] live audio 接入后完整本地链路验证成功（依赖 anime-whisper，当前环境 blocked）
 
 ## Assumptions
 - [x] 当前不在这台机器上做真实 `anime-whisper` runtime 验证

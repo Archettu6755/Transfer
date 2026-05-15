@@ -21,6 +21,7 @@ def run_init(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="desktop-cli init")
     parser.parse_args(list(argv) if argv is not None else None)
 
+    print("Recommended providers: deepseek, qwen")
     provider_input = _prompt_non_empty("Please input provider name: ")
     provider = resolve_provider(provider_input)
     flagship_model = get_flagship_model(provider.canonical_name)

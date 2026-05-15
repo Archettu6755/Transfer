@@ -68,6 +68,7 @@ def test_subtitle_controller_runs_final_transcript_to_translation_and_overlay() 
         overlay_controller=OverlayController(window),
         audio_input=FakeAudioInput([_chunk(0)]),
         app_config=AppConfig(show_source_text=True),
+        auto_hide_ms=0,
     )
 
     state = asyncio.run(controller.run())
@@ -77,8 +78,8 @@ def test_subtitle_controller_runs_final_transcript_to_translation_and_overlay() 
     assert state.last_translated_text == "模拟翻译：これはフェイク runtime の最終文字起こしです。"
     assert len(window.updates) == 1
     assert window.updates[0].translated_text.startswith("模拟翻译：")
-    assert window.hide_calls == 1
-    assert window.clear_calls == 1
+    assert window.hide_calls == 0
+    assert window.clear_calls == 0
 
 
 def test_subtitle_controller_uses_source_fallback_when_translation_fails() -> None:
@@ -90,6 +91,7 @@ def test_subtitle_controller_uses_source_fallback_when_translation_fails() -> No
         overlay_controller=OverlayController(window),
         audio_input=FakeAudioInput([_chunk(0)]),
         app_config=AppConfig(show_source_text=True),
+        auto_hide_ms=0,
     )
 
     state = asyncio.run(controller.run())

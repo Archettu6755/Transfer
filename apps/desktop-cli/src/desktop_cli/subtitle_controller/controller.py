@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from typing import Literal
 from uuid import uuid4
@@ -45,10 +46,12 @@ class SubtitleController:
     audio_input: AudioInputSource
     app_config: AppConfig
     sample_rate: int = 16_000
+    auto_hide_ms: int = 5_000
     stream_id: str = field(default_factory=lambda: uuid4().hex)
     state: SubtitleSessionState = field(default_factory=SubtitleSessionState)
     _stream_started: bool = field(default=False, init=False)
     _cleaned_up: bool = field(default=False, init=False)
+    _auto_hide_task: asyncio.Task[None] | None = field(default=None, init=False)
 
     def __post_init__(self) -> None:
         self.state.runtime_mode = self.app_config.runtime_mode
@@ -129,6 +132,23 @@ class SubtitleController:
                 source_text=source_text,
                 config=self.app_config,
             )
+        self._reset_auto_hide()
+
+    def _reset_auto_hide(self) -> None:
+        if self.auto_hide_ms <= 0:
+            return
+
+        if self._auto_hide_task and not self._auto_hide_task.done():
+            self._auto_hide_task.cancel()
+
+        async def _sleep_then_hide() -> None:
+            try:
+                await asyncio.sleep(self.auto_hide_ms / 1000)
+            except asyncio.CancelledError:
+                return
+            self.overlay_controller.hide()
+
+        self._auto_hide_task = asyncio.create_task(_sleep_then_hide())
 
     async def _cleanup(self, reset_state: bool) -> None:
         if self._cleaned_up:
@@ -137,6 +157,25 @@ class SubtitleController:
             return
 
         self._cleaned_up = True
+
+        if reset_state:
+            if self._auto_hide_task and not self._auto_hide_task.done():
+                self._auto_hide_task.cancel()
+                try:
+                    await self._auto_hide_task
+                except asyncio.CancelledError:
+                    pass
+                self._auto_hide_task = None
+            self.overlay_controller.hide()
+            self.overlay_controller.clear()
+        else:
+            if self._auto_hide_task and not self._auto_hide_task.done():
+                try:
+                    await self._auto_hide_task
+                except asyncio.CancelledError:
+                    pass
+                self._auto_hide_task = None
+
         try:
             self.audio_input.stop()
         except Exception:
@@ -163,8 +202,6 @@ class SubtitleController:
         except Exception:
             pass
 
-        self.overlay_controller.hide()
-        self.overlay_controller.clear()
         if reset_state:
             self._reset_state()
 

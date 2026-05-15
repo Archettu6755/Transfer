@@ -105,14 +105,17 @@ class OverlayWindow(QWidget):  # type: ignore[misc]
             self.show()
         else:
             self.hide()
+        QApplication.processEvents()
 
     def hide_overlay(self) -> None:
         self.hide()
+        QApplication.processEvents()
 
     def clear(self) -> None:
         self._source_label.setText("")
         self._translated_label.setText("")
         self.hide()
+        QApplication.processEvents()
 
     def _build_style(self, state: OverlaySubtitleState) -> OverlayWindowStyle:
         opacity = max(0.0, min(1.0, state.background_opacity))

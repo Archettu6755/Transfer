@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 from desktop_cli.audio_input import AudioChunk
 
 from .client import (
-    AudioInputPayload,
     CancelStreamRequest,
     FinalTranscriptEvent,
     FinishStreamRequest,
