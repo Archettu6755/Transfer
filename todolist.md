@@ -76,60 +76,60 @@
   - [x] stop 后清空
 
 ## Phase 5 — Live Audio Input
-- [ ] 在 `apps/desktop-cli/src/audio_input/` 建立 live audio 输入边界
-- [ ] 明确 live audio 与 file input 的统一接口
-- [ ] 让 live audio 事件进入 runtime client 边界
-- [ ] 设计音频失败时的用户可读错误
-- [ ] 明确是否需要音频 passthrough
-- [ ] 不再沿用 extension 的：
-  - [ ] `chrome.tabCapture`
-  - [ ] `offscreen`
-  - [ ] `audio-worklet`
-  - [ ] `serviceWorker`
-- [ ] 处理 `packages/shared/src/messages.ts` 中的 extension/offscreen 专用共享类型
+- [x] 在 `apps/desktop-cli/src/audio_input/` 建立 live audio 输入边界
+- [x] 明确 live audio 与 file input 的统一接口
+- [x] 让 live audio 事件进入 runtime client 边界
+- [x] 设计音频失败时的用户可读错误
+- [x] 明确是否需要音频 passthrough
+- [x] 不再沿用 extension 的：
+  - [x] `chrome.tabCapture`
+  - [x] `offscreen`
+  - [x] `audio-worklet`
+  - [x] `serviceWorker`
+- [x] 处理 `packages/shared/src/messages.ts` 中的 extension/offscreen 专用共享类型
 
 ## Phase 6 — Full Local CLI Loop
-- [ ] 实现 CLI session lifecycle
+- [x] 实现 CLI session lifecycle
 - [ ] 连接：
   - [ ] live audio
   - [ ] `anime-whisper`
-  - [ ] translator
-  - [ ] subtitle controller
-  - [ ] overlay window
-- [ ] 固定行为：
-  - [ ] only final transcript enters translation
-  - [ ] latest subtitle replaces previous subtitle
-  - [ ] translation failure shows source fallback
-  - [ ] stop releases all resources
+  - [x] translator
+  - [x] subtitle controller
+  - [x] overlay window
+- [x] 固定行为：
+  - [x] only final transcript enters translation
+  - [x] latest subtitle replaces previous subtitle
+  - [x] translation failure shows source fallback
+  - [x] stop releases all resources
 - [ ] 迁移当前可复用控制流：
   - [ ] `transcriptCoordinator` 思路
   - [ ] subtitle auto-hide 思路
-  - [ ] latest-single-subtitle 策略
-- [ ] 不再以 extension background/session 作为主闭环
+  - [x] latest-single-subtitle 策略
+- [x] 不再以 extension background/session 作为主闭环
 
 ## Cleanup / Freeze
-- [ ] 明确 `apps/extension/` 的处理策略：
-  - [ ] 停止继续投入
-  - [ ] 从主验证链路剔除
-  - [ ] 后续决定归档或保留为历史代码
-- [ ] 明确继续保留的 TS 包：
-  - [ ] `shared`
-  - [ ] `core`
-  - [ ] `asr-local`
-  - [ ] `translator`
-  - [ ] `subtitle`
-- [ ] 明确哪些内容只保留作验证资产
+- [x] 明确 `apps/extension/` 的处理策略：
+  - [x] 停止继续投入
+  - [x] 从主验证链路剔除
+  - [x] 已从当前仓库工作树彻底移除
+- [x] 明确继续保留的 TS 包：
+  - [x] `shared`
+  - [x] `core`
+  - [x] `asr-local`
+  - [x] `translator`
+  - [x] `subtitle`
+- [x] 明确哪些内容只保留作验证资产
 
 ## Validation Checklist
 - [x] 仓库级现有 TS 校验仍能跑通或被合理降级
-- [ ] `web-demo` 文件验证链路能跑通
+- [x] `web-demo` 文件验证链路能跑通
 - [x] Python CLI 最小启动成功
 - [x] overlay window 最小显示成功
 - [x] runtime client 文件输入验证成功
 - [ ] live audio 接入后完整本地链路验证成功
 
 ## Assumptions
-- [ ] 当前不在这台机器上做真实 `anime-whisper` runtime 验证
-- [ ] 当前不实现任何 V2 功能
+- [x] 当前不在这台机器上做真实 `anime-whisper` runtime 验证
+- [x] 当前不实现任何 V2 功能
 - [x] `web-demo` 继续保留，但只做文件验证
 - [x] extension 正式退出主产品路线
