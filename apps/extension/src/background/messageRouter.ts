@@ -1,10 +1,12 @@
 import {
-  DEFAULT_LOCAL_ASR_SESSION_STATE,
-  type LocalASRSessionState,
   type SourceLanguage,
   type SubtitleSegment,
   type UserSettings
 } from 'shared';
+import {
+  DEFAULT_LOCAL_ASR_SESSION_STATE,
+  type LocalASRSessionState
+} from '../local-asr/runtimeProtocol';
 
 export type ExtensionStatus = 'idle' | 'running' | 'stopped' | 'error';
 

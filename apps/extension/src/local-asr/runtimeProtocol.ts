@@ -1,4 +1,4 @@
-import type { SourceLanguage } from './language';
+import type { SourceLanguage } from 'shared';
 
 export type LocalASRSessionStatus =
   | 'idle'

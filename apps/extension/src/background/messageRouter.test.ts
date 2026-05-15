@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { DEFAULT_LOCAL_ASR_SESSION_STATE, DEFAULT_USER_SETTINGS } from 'shared';
+import { DEFAULT_USER_SETTINGS } from 'shared';
+import { DEFAULT_LOCAL_ASR_SESSION_STATE } from '../local-asr/runtimeProtocol';
 import {
   advanceLocalASRSessionState,
   type ExtensionStatus,

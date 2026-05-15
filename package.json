@@ -4,10 +4,13 @@
   "version": "0.0.0",
   "packageManager": "pnpm@10.17.1",
   "scripts": {
-    "build": "pnpm -r --if-present build",
-    "test": "pnpm -r --if-present test",
-    "typecheck": "pnpm -r --if-present typecheck",
-    "type-check": "pnpm -r --if-present typecheck"
+    "build": "pnpm --filter shared build && pnpm --filter subtitle build && pnpm --filter translator build && pnpm --filter asr-local build && pnpm --filter core build && pnpm --filter web-demo build",
+    "test": "pnpm --filter subtitle test && pnpm --filter translator test && pnpm --filter asr-local test && pnpm --filter core test && pnpm --filter web-demo test",
+    "typecheck": "pnpm --filter shared typecheck && pnpm --filter subtitle typecheck && pnpm --filter translator typecheck && pnpm --filter asr-local typecheck && pnpm --filter core typecheck && pnpm --filter web-demo typecheck",
+    "type-check": "pnpm --filter shared typecheck && pnpm --filter subtitle typecheck && pnpm --filter translator typecheck && pnpm --filter asr-local typecheck && pnpm --filter core typecheck && pnpm --filter web-demo typecheck",
+    "build:legacy-extension": "pnpm --filter extension build",
+    "test:legacy-extension": "pnpm --filter extension test",
+    "typecheck:legacy-extension": "pnpm --filter extension typecheck"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

@@ -1,4 +1,7 @@
-import type { OffscreenRuntimeEvent, OffscreenRuntimeMessage } from 'shared';
+import type {
+  OffscreenRuntimeEvent,
+  OffscreenRuntimeMessage
+} from '../local-asr/runtimeProtocol';
 
 const WORKLET_MODULE_PATH = 'src/audio-worklet/captureProcessor.js';
 

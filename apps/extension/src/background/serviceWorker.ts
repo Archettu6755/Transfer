@@ -1,11 +1,13 @@
 import {
-  DEFAULT_LOCAL_ASR_SESSION_STATE,
-  type LocalASRSessionState,
   DEFAULT_USER_SETTINGS,
-  type OffscreenRuntimeEvent,
-  type OffscreenRuntimeMessage,
   type UserSettings
 } from 'shared';
+import {
+  DEFAULT_LOCAL_ASR_SESSION_STATE,
+  type LocalASRSessionState,
+  type OffscreenRuntimeEvent,
+  type OffscreenRuntimeMessage
+} from '../local-asr/runtimeProtocol';
 import {
   advanceLocalASRSessionState,
   type ContentRuntimeMessage,
