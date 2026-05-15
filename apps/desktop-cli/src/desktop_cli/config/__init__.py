@@ -16,6 +16,9 @@ class AppConfig:
     api_base_url: str = ""
     api_key: str = ""
     model_name: str = ""
+    runtime_mode: str = "fake"
+    translator_mode: str = "mock"
+    translator_timeout_ms: int = 30_000
     show_source_text: bool = False
     font_size: int = 32
     overlay_position: str = "bottom"

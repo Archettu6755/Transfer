@@ -1,5 +1,6 @@
 """Runtime client module boundary for anime-whisper integration."""
 
+from .anime_whisper import AnimeWhisperRuntimeClient
 from .client import (
     AudioChunkRequest,
     AudioInputPayload,
@@ -10,6 +11,7 @@ from .client import (
     PartialTranscriptEvent,
     RuntimeClient,
     RuntimeClientConfig,
+    RuntimeEvent,
     StartStreamRequest,
     StreamCompletedEvent,
     StreamFailedEvent,
@@ -17,17 +19,21 @@ from .client import (
     TranscribeFileRequest,
     TranscribeFileResponse,
 )
+from .fake import FakeRuntimeClient
 
 __all__ = [
+    "AnimeWhisperRuntimeClient",
     "AudioChunkRequest",
     "AudioInputPayload",
     "CancelStreamRequest",
+    "FakeRuntimeClient",
     "FinalTranscriptEvent",
     "FinishStreamRequest",
     "LocalAsrSegment",
     "PartialTranscriptEvent",
     "RuntimeClient",
     "RuntimeClientConfig",
+    "RuntimeEvent",
     "StartStreamRequest",
     "StreamCompletedEvent",
     "StreamFailedEvent",

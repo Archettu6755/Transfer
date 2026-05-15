@@ -1,9 +1,11 @@
-"""Phase 3 runtime client boundary aligned with the TS protocol scaffold."""
+"""Runtime client protocols and event models for local ASR integration."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, Protocol
+from typing import Literal, Protocol, TypeAlias
+
+from desktop_cli.audio_input import AudioChunk
 
 
 @dataclass(slots=True)
@@ -108,11 +110,28 @@ class StreamFailedEvent:
     retryable: bool = False
 
 
+RuntimeEvent: TypeAlias = (
+    StreamStartedEvent
+    | PartialTranscriptEvent
+    | FinalTranscriptEvent
+    | StreamCompletedEvent
+    | StreamFailedEvent
+)
+
+
 class RuntimeClient(Protocol):
     async def init(self, config: RuntimeClientConfig) -> None: ...
 
     async def transcribe_file(
         self, request: TranscribeFileRequest
     ) -> TranscribeFileResponse: ...
+
+    async def start_stream(self, request: StartStreamRequest) -> list[RuntimeEvent]: ...
+
+    async def push_chunk(self, chunk: AudioChunk) -> list[RuntimeEvent]: ...
+
+    async def finish_stream(self, request: FinishStreamRequest) -> list[RuntimeEvent]: ...
+
+    async def cancel_stream(self, request: CancelStreamRequest) -> list[RuntimeEvent]: ...
 
     async def dispose(self) -> None: ...

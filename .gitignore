@@ -12,6 +12,9 @@ coverage/
 .env
 .env.*
 !.env.example
+.venv/
+__pycache__/
+*.pyc
 
 # Logs
 *.log
@@ -29,4 +32,3 @@ Thumbs.db
 # Extension packaging
 *.crx
 *.pem
-
