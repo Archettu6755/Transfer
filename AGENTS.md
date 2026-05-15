@@ -1,9 +1,12 @@
 # AGENTS.md — Agent Workflow Contract
 
 > This document defines how coding agents must work in this repository.
-> `AGENTS-2.md` is the local-environment execution contract.
+> `AGENTS-2.md` and `AGENTS-3.md` are the local-environment execution
+> contracts. They are mutually exclusive — read both, but only apply
+> the one that matches the current workstation. If uncertain which
+> applies, ask the user.
 > `target.md` is the product contract. `implementation.md` is the engineering contract.
-> Agents must read all four documents before making changes.
+> Agents must read all five documents before making changes.
 
 ---
 
@@ -17,8 +20,12 @@
    - Package boundaries, runtime responsibilities, module layout, and phase deliverables are defined there.
    - Do not invent a different architecture without user approval.
 
-3. **`AGENTS-2.md` is the source of truth for this workstation's execution limits.**
-   - If a task requires Docker, WSL2, or real `anime-whisper` runtime work on this machine, stop and report that constraint.
+3. **`AGENTS-2.md` and `AGENTS-3.md` define the current workstation's execution limits.**
+     They are mutually exclusive:
+     - `AGENTS-2.md` — applies when Docker / WSL2 are NOT available
+     - `AGENTS-3.md` — applies when Docker / WSL2 ARE available
+   - The agent reads both, determines which applies (or asks the user), and follows only that one.
+   - If a task conflicts with the active constraint file, stop and report it.
 
 4. **Mock first, real implementation second.**
    - Every major module must have a mock or validation path before the real runtime path.
@@ -89,7 +96,7 @@ Agents must follow this workflow for every task.
 
 ```text
 Step 1. Understand
-  - Read AGENTS.md, AGENTS-2.md, target.md, and implementation.md.
+  - Read AGENTS.md, AGENTS-2.md, AGENTS-3.md, target.md, and implementation.md.
   - Locate the phase or feature being requested.
   - If the user request conflicts with target.md, state the conflict.
   - If the task requires real anime-whisper runtime work on this machine, state the AGENTS-2.md conflict.
@@ -252,6 +259,7 @@ Agents may read:
 
 - `AGENTS.md`
 - `AGENTS-2.md`
+- `AGENTS-3.md`
 - `target.md`
 - `implementation.md`
 
@@ -383,8 +391,8 @@ Stop and ask the user when any of the following occurs:
 5. Pipeline or controller interfaces need breaking changes.
 6. A validation command fails more than three times.
 7. A required dependency is no longer maintained or cannot run in the target runtime environment.
-8. A task requires real Docker/WSL2/`anime-whisper` runtime work on this machine in violation of `AGENTS-2.md`.
-9. A requested change requires modifying `AGENTS.md`, `AGENTS-2.md`, `target.md`, or `implementation.md`.
+8. A task requires real Docker/WSL2/`anime-whisper` runtime work that violates the active environment constraint file (`AGENTS-2.md` or `AGENTS-3.md`).
+9. A requested change requires modifying `AGENTS.md`, `AGENTS-2.md`, `AGENTS-3.md`, `target.md`, or `implementation.md`.
 
 Use this format:
 
