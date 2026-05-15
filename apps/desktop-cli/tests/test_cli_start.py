@@ -60,6 +60,19 @@ def test_main_dispatches_start_in_dry_run_mode(tmp_path, monkeypatch) -> None:
     assert main(["start", "--dry-run"]) == 0
 
 
+def test_main_without_subcommand_runs_start(monkeypatch) -> None:
+    called_with: list[list[str]] = []
+
+    def fake_start(argv: list[str]) -> int:
+        called_with.append(argv)
+        return 0
+
+    monkeypatch.setattr("desktop_cli.cli.main.run_start", fake_start)
+
+    assert main([]) == 0
+    assert called_with == [[]]
+
+
 def test_main_uses_process_argv_for_start(monkeypatch, tmp_path) -> None:
     called_with: list[list[str]] = []
 
@@ -132,7 +145,7 @@ def test_start_reports_missing_api_key_env_var_readably(tmp_path, monkeypatch) -
 def test_start_reports_missing_config_readably(tmp_path, monkeypatch) -> None:
     _patch_app_root(monkeypatch, tmp_path)
 
-    with pytest.raises(RuntimeError, match="desktop-cli init"):
+    with pytest.raises(RuntimeError, match="desktop-cli is not initialized"):
         run_start(["--dry-run"])
 
 
@@ -163,7 +176,24 @@ def test_start_rejects_internal_translator_mode_flag(tmp_path, monkeypatch) -> N
         run_start(["--translator-mode", "mock", "--dry-run"])
 
 
-def test_main_default_output_mentions_init_and_start(capsys) -> None:
-    assert main([]) == 0
+def test_main_help_mentions_init_and_start_only(capsys) -> None:
+    assert main(["help"]) == 0
     captured = capsys.readouterr()
-    assert "Available commands: init, start" in captured.out
+    assert "User commands:" in captured.out
+    assert "init" in captured.out
+    assert "start" in captured.out
+    assert "session-demo" not in captured.out
+
+
+def test_main_help_dev_includes_development_commands(capsys) -> None:
+    assert main(["help", "--dev"]) == 0
+    captured = capsys.readouterr()
+    assert "Development commands:" in captured.out
+    assert "session-demo" in captured.out
+
+
+def test_main_unknown_command_shows_help_and_returns_error(capsys) -> None:
+    assert main(["unknown-command"]) == 1
+    captured = capsys.readouterr()
+    assert "Unknown command: unknown-command" in captured.out
+    assert "User commands:" in captured.out

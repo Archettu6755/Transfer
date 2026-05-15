@@ -12,6 +12,7 @@ from desktop_cli.config import (
     DEFAULT_FONT_SIZE,
     SavedAppConfig,
 )
+from desktop_cli.config.models import get_flagship_model
 from desktop_cli.config.providers import resolve_provider
 from desktop_cli.config.storage import save_dotenv_value, save_saved_config
 
@@ -22,9 +23,10 @@ def run_init(argv: Sequence[str] | None = None) -> int:
 
     provider_input = _prompt_non_empty("Please input provider name: ")
     provider = resolve_provider(provider_input)
+    flagship_model = get_flagship_model(provider.canonical_name)
     print(f"Canonical provider: {provider.canonical_name}")
     print(f"Recommended model: {provider.default_model_name}")
-    print(f"Flagship model: {provider.flagship_model_hint}")
+    print(f"Flagship model: {flagship_model.model_name}")
 
     model_name = _prompt_with_default(
         "Please input the model", provider.default_model_name

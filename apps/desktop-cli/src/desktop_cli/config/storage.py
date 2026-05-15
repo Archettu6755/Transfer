@@ -33,9 +33,7 @@ def get_dotenv_path() -> Path:
 def load_saved_config() -> SavedAppConfig:
     path = get_config_path()
     if not path.exists():
-        raise RuntimeError(
-            f"Missing desktop-cli config at {path}. Run 'desktop-cli init' first."
-        )
+        raise RuntimeError("desktop-cli is not initialized. Run 'desktop-cli init' first.")
 
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
