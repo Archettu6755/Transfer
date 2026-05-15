@@ -12,6 +12,7 @@ coverage/
 .env
 .env.*
 !.env.example
+.desktop-cli.json
 .venv/
 __pycache__/
 *.pyc

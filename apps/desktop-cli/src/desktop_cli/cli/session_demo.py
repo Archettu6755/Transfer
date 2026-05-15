@@ -21,6 +21,53 @@ from desktop_cli.translator_client import (
 )
 
 
+def run_configured_session(
+    *,
+    config: AppConfig,
+    audio_config: AudioInputConfig,
+    dry_run: bool,
+    command_name: str,
+) -> int:
+    if dry_run:
+        print(f"{command_name} dry run OK")
+        return 0
+
+    from desktop_cli.overlay_window.window import OverlayWindow, ensure_pyside6_available
+
+    ensure_pyside6_available()
+
+    from PySide6.QtWidgets import QApplication
+
+    app = QApplication.instance() or QApplication([])
+    window = OverlayWindow()
+    overlay_controller = OverlayController(window)
+    controller = SubtitleController(
+        runtime_client=_create_runtime_client(config),
+        runtime_config=RuntimeClientConfig(
+            base_url="http://127.0.0.1:0",
+            timeout_ms=config.translator_timeout_ms,
+        ),
+        translator_client=_create_translator_client(config),
+        overlay_controller=overlay_controller,
+        audio_input=_create_audio_source(audio_config),
+        app_config=config,
+    )
+
+    app.processEvents()
+    state = asyncio.run(controller.run())
+    app.processEvents()
+
+    if state.last_error:
+        print(f"{command_name} failed: {state.last_error}")
+        return 1
+
+    print(
+        f"{command_name} completed: "
+        f"runtime={state.runtime_mode} translator={state.translator_mode}"
+    )
+    return 0
+
+
 def run_session_demo(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="desktop-cli session-demo")
     parser.add_argument(
@@ -47,16 +94,6 @@ def run_session_demo(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(list(argv) if argv is not None else None)
 
-    if args.dry_run:
-        print("session-demo dry run OK")
-        return 0
-
-    from desktop_cli.overlay_window.window import OverlayWindow, ensure_pyside6_available
-
-    ensure_pyside6_available()
-
-    from PySide6.QtWidgets import QApplication
-
     config = AppConfig(
         api_base_url=args.api_base_url,
         api_key=args.api_key,
@@ -70,32 +107,12 @@ def run_session_demo(argv: Sequence[str] | None = None) -> int:
         source=args.audio_source,
         duration_ms=args.duration_ms,
     )
-
-    app = QApplication.instance() or QApplication([])
-    window = OverlayWindow()
-    overlay_controller = OverlayController(window)
-    controller = SubtitleController(
-        runtime_client=_create_runtime_client(config),
-        runtime_config=RuntimeClientConfig(base_url="http://127.0.0.1:0", timeout_ms=args.timeout_ms),
-        translator_client=_create_translator_client(config),
-        overlay_controller=overlay_controller,
-        audio_input=_create_audio_source(audio_config),
-        app_config=config,
+    return run_configured_session(
+        config=config,
+        audio_config=audio_config,
+        dry_run=args.dry_run,
+        command_name="session-demo",
     )
-
-    app.processEvents()
-    state = asyncio.run(controller.run())
-    app.processEvents()
-
-    if state.last_error:
-        print(f"session-demo failed: {state.last_error}")
-        return 1
-
-    print(
-        "session-demo completed: "
-        f"runtime={state.runtime_mode} translator={state.translator_mode}"
-    )
-    return 0
 
 
 def _create_audio_source(config: AudioInputConfig):

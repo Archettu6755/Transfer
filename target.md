@@ -15,7 +15,7 @@ The MVP runs as a local Python CLI workflow, connects to an `anime-whisper` runt
 Core value:
 
 - **Local-first ASR:** no cloud ASR is required.
-- **User-owned LLM credentials:** the user enters their own API Base URL, API Key, and Model Name.
+- **User-owned LLM credentials:** the user enters their own provider name, API Key, and Model Name.
 - **Composable architecture:** audio input, runtime client, translator, subtitle controller, and overlay window remain separated.
 - **Practical local UX:** the product is a local tool, not a browser extension.
 
@@ -124,8 +124,7 @@ Stop should stop audio capture or processing, stop ASR and translation work, and
 
 The product must allow the user to configure:
 
-- Provider preset for supported OpenAI-compatible services
-- API Base URL
+- Provider name for supported OpenAI-compatible services
 - API Key
 - Model Name
 - Show source text on subtitle overlay
@@ -141,22 +140,21 @@ The MVP does not require a user-facing runtime endpoint editor unless the produc
 
 The product uses OpenAI-compatible Chat Completions.
 
-The user must always be able to provide:
+The user-facing local CLI configuration must require:
 
 ```text
-API Base URL
+Provider
 API Key
 Model Name
 ```
 
-To simplify setup, the product may also provide a small set of provider presets for known OpenAI-compatible services.
+Provider behavior:
 
-Preset behavior:
-
-- Selecting a preset may automatically fill a recommended API Base URL.
-- Selecting a preset may automatically fill a recommended default Model Name.
+- The product may normalize user-entered provider aliases into a canonical provider id.
+- The product may derive a fixed API Base URL internally from the canonical provider.
 - The user must still provide their own API Key.
-- The user must always be able to switch to a Custom preset and manually edit Base URL and Model Name.
+- The user must be able to enter any non-empty Model Name.
+- The product must not expose `api_base_url` as a user-facing CLI input.
 
 The product must not hardcode provider-specific credentials.
 
@@ -258,7 +256,7 @@ These items must not be treated as current MVP acceptance criteria.
 The MVP is complete when:
 
 1. The local CLI can start.
-2. The user can configure API Base URL, API Key, and Model Name, either manually or through a provider preset that auto-fills recommended values.
+2. The user can configure Provider, API Key, and Model Name through the local CLI configuration flow, with API Base URL derived internally from the provider mapping.
 3. The application can connect to the local `anime-whisper` runtime.
 4. Live audio can be processed into final Japanese source-language text.
 5. The translator converts source text into `zh-CN`.

@@ -14,6 +14,7 @@ class OverlaySubtitleState:
     translated_text: str = ""
     source_text: str = ""
     show_source_text: bool = False
+    font_family: str = "Microsoft YaHei"
     font_size: int = 32
     overlay_position: str = "bottom"
     background_opacity: float = 0.75
@@ -31,6 +32,7 @@ def create_overlay_state_from_config(
         translated_text=translated_text,
         source_text=source_text,
         show_source_text=config.show_source_text,
+        font_family=config.font_family,
         font_size=config.font_size,
         overlay_position=config.overlay_position,
         background_opacity=config.background_opacity,

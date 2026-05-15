@@ -164,12 +164,13 @@ API keys must never be:
 - Included in overlay text
 - Included in raw error messages shown to users
 
-Provider presets may exist as a convenience layer for OpenAI-compatible services, but they must follow these rules:
+Provider mappings may exist as a convenience layer for OpenAI-compatible services, but they must follow these rules:
 
-- `custom` must always exist
-- Provider presets may auto-fill recommended Base URL and default Model Name values
-- Provider presets must not remove the user's ability to manually edit Base URL and Model Name
-- API keys must remain user-provided and must never be bundled into preset definitions
+- The local CLI product path may normalize provider aliases into a canonical provider id
+- The local CLI product path may derive a fixed Base URL from the canonical provider
+- API keys must remain user-provided and must never be bundled into provider definitions
+- API keys may be persisted only in local environment storage such as a Git-ignored `.env` file
+- The local CLI product path must not expose `api_base_url` as a user-facing input
 
 ### 4.5 Provider and Client Architecture
 
@@ -324,7 +325,7 @@ Before reporting complete:
 
 - [ ] OpenAI-compatible translator implements the required translator interface
 - [ ] Prompt logic is centralized
-- [ ] User can supply Base URL, API Key, and Model Name manually or through a provider preset
+- [ ] User can supply Provider, API Key, and Model Name through the local CLI configuration flow
 - [ ] API key is not hardcoded or logged
 - [ ] Network failures return readable UI errors
 - [ ] Translation supports only `zh-CN`
@@ -466,4 +467,3 @@ Current MVP subtitle behavior remains:
 - `anime-whisper` as the real local-ASR target
 - final transcript only
 - latest single subtitle only
-

@@ -35,6 +35,7 @@ def test_overlay_controller_pushes_latest_subtitle_state_to_window() -> None:
     assert state.translated_text == "这是最新的一条字幕"
     assert state.source_text == "これは最新の字幕です"
     assert state.show_source_text is True
+    assert state.font_family == "Microsoft YaHei"
     assert state.visible is True
 
 

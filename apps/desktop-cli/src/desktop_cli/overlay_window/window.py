@@ -36,6 +36,7 @@ def ensure_pyside6_available() -> None:
 class OverlayWindowStyle:
     """Computed style values derived from the current subtitle state."""
 
+    font_family: str
     font_size: int
     background_rgba: str
 
@@ -87,6 +88,7 @@ class OverlayWindow(QWidget):  # type: ignore[misc]
 
         common_style = (
             f"color: white;"
+            f"font-family: \"{style.font_family}\";"
             f"font-size: {style.font_size}px;"
             "padding: 0;"
         )
@@ -117,6 +119,7 @@ class OverlayWindow(QWidget):  # type: ignore[misc]
         alpha = int(opacity * 255)
         color = QColor(18, 18, 18, alpha)
         return OverlayWindowStyle(
+            font_family=state.font_family,
             font_size=state.font_size,
             background_rgba=color.name(QColor.NameFormat.HexArgb),
         )

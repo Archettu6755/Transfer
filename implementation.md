@@ -201,7 +201,7 @@ packages/translator/
 Required behavior:
 
 - Use OpenAI-compatible Chat Completions
-- Use user-provided Base URL, API Key, and Model Name
+- Use user-provided Provider, API Key, and Model Name
 - Support timeout
 - Return readable errors
 - Never log API key
@@ -209,6 +209,7 @@ Required behavior:
 - Consume only final Japanese transcript in MVP
 
 The prompt layer may remain centralized, but must reflect the fixed `ja -> zh-CN` direction.
+The local CLI product path may derive `api_base_url` internally from a canonical provider mapping and must not expose `api_base_url` as a user-facing CLI input.
 
 ---
 
@@ -266,16 +267,15 @@ The MVP product target is live audio, but file-based validation is required earl
 
 The local product must support configuration for:
 
-- API Base URL
+- provider
 - API Key
 - Model Name
-- provider preset
 - show source text
 - font size
 - overlay position
 - background opacity
 
-The MVP does not require a user-facing editor for runtime endpoints unless scope expands later.
+The MVP does not require a user-facing editor for runtime endpoints. `api_base_url` may remain an internal derived field.
 
 Configuration must stay local and must not be committed.
 
@@ -324,7 +324,7 @@ Deliver:
 - Prompt builder
 - OpenAI-compatible translator
 - LLM settings handling
-- Provider preset selector with custom override
+- Provider normalization and internal endpoint mapping
 - Error display
 
 Validate:
