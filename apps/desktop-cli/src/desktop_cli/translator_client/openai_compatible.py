@@ -11,15 +11,30 @@ from desktop_cli.config import AppConfig
 from .client import TranslationRequest, TranslationResponse
 
 
+_SYSTEM_PROMPT = (
+    "You are a live translator for Japanese VTuber streams. "
+    "Translate Japanese speech into natural, spoken Simplified Chinese subtitles.\n"
+    "\n"
+    "Rules:\n"
+    "1. Output ONLY the zh-CN text — no explanations, no prefixes, no romanization.\n"
+    "2. Use casual spoken register matching the VTuber's tone. Never formal/written style.\n"
+    "3. Keep it concise — one or two short subtitle lines.\n"
+    "4. If the ASR transcript is broken or nonsensical, output your best guess rather than empty.\n"
+    "5. Preserve emotional cues naturally (laughs/ww, sighs, excitement marks).\n"
+    "6. For game/anime terminology, use the convention Chinese fans most commonly use. "
+    "Only use Japanese loanwords when there is no standard Chinese equivalent.\n"
+    "7. No narration prefix like \"the VTuber said:\" — output pure subtitle text."
+)
+
+# Reserved: glossary injection point.
+# When glossary is wired, prepend terminology mapping:
+#   terms = "\\n".join(f"- {jp} -> {cn}" for jp, cn in glossary.items())
+#   prompt = f"{_SYSTEM_PROMPT}\\n\\nTerminology:\\n{terms}"
+
+
 def _build_messages(source_text: str) -> list[dict[str, str]]:
     return [
-        {
-            "role": "system",
-            "content": (
-                "You translate final Japanese VTuber livestream transcript text into "
-                "Simplified Chinese subtitles. Output only the final zh-CN subtitle text."
-            ),
-        },
+        {"role": "system", "content": _SYSTEM_PROMPT},
         {"role": "user", "content": source_text},
     ]
 

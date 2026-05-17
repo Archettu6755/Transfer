@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import subprocess
+import time
 from collections.abc import Sequence
+from pathlib import Path
 
 from desktop_cli.audio_input import AudioInputConfig, LoopbackAudioInput, TestToneAudioInput
 from desktop_cli.config import AppConfig
@@ -32,6 +35,8 @@ def run_configured_session(
         print(f"{command_name} dry run OK")
         return 0
 
+    _ensure_asr_server(config)
+
     from desktop_cli.overlay_window.window import OverlayWindow, ensure_pyside6_available
 
     ensure_pyside6_available()
@@ -44,7 +49,7 @@ def run_configured_session(
     controller = SubtitleController(
         runtime_client=_create_runtime_client(config),
         runtime_config=RuntimeClientConfig(
-            base_url="http://127.0.0.1:0",
+            base_url=config.runtime_base_url,
             timeout_ms=config.translator_timeout_ms,
         ),
         translator_client=_create_translator_client(config),
@@ -131,3 +136,21 @@ def _create_translator_client(config: AppConfig):
     if config.translator_mode == "mock":
         return MockTranslatorClient()
     return OpenAICompatibleTranslatorClient(config=config)
+
+
+def _ensure_asr_server(config: AppConfig) -> None:
+    if config.runtime_mode != "anime-whisper":
+        return
+
+    compose_dir = Path(__file__).resolve().parents[5] / "docker"
+    compose_file = compose_dir / "docker-compose.yml"
+    if not compose_file.is_file():
+        return
+
+    print("Ensuring anime-whisper ASR server is running...")
+    subprocess.run(
+        ["docker", "compose", "-f", str(compose_file), "up", "-d"],
+        check=False,
+        capture_output=True,
+    )
+    time.sleep(2)

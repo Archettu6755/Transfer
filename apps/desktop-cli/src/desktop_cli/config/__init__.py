@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 DEFAULT_FONT_FAMILY = "Microsoft YaHei"
@@ -19,9 +19,12 @@ class AppConfig:
     api_key: str = ""
     api_key_env_var: str = ""
     model_name: str = ""
+    runtime_base_url: str = "ws://127.0.0.1:9000"
     runtime_mode: str = "fake"
     translator_mode: str = "mock"
     translator_timeout_ms: int = 30_000
+    # Reserved for terminology injection — not wired to prompt yet.
+    glossary: dict[str, str] = field(default_factory=dict)
     show_source_text: bool = False
     font_family: str = DEFAULT_FONT_FAMILY
     font_size: int = DEFAULT_FONT_SIZE

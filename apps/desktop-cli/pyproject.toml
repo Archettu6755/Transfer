@@ -12,6 +12,7 @@ dependencies = [
   "httpx",
   "PySide6",
   "sounddevice",
+  "websockets",
 ]
 
 [project.scripts]

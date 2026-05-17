@@ -33,3 +33,14 @@ Thumbs.db
 # Extension packaging
 *.crx
 *.pem
+
+# Benchmark data & results
+apps/desktop-cli/scripts/eval_dataset.json
+apps/desktop-cli/scripts/benchmark_results.json
+benchmark_report.md
+
+# Docker model cache
+docker/asr-server/.cache/
+
+# PyTorch / HF cache in home
+models/

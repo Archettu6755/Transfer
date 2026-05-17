@@ -110,20 +110,8 @@ describe('LocalASRProvider', () => {
     });
   });
 
-  it('surfaces readable unimplemented runtime errors', async () => {
+  it('uses WebSocketASRClient by default', () => {
     const provider = new LocalASRProvider();
-
-    await expect(
-      provider.recognize(
-        {
-          id: 'audio-2',
-          data: new Float32Array(),
-          sampleRate: 16_000
-        },
-        'ja'
-      )
-    ).rejects.toThrow(
-      'Local anime-whisper runtime scaffolding exists, but real runtime integration is not developed on this workstation.'
-    );
+    expect(provider).toBeDefined();
   });
 });

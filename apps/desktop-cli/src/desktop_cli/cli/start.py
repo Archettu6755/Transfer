@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from collections.abc import Sequence
 
 from desktop_cli.audio_input import AudioInputConfig
@@ -27,6 +28,7 @@ def run_start(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--bg", "-b", type=float)
     parser.add_argument("--audio-source", choices=["test-tone", "loopback"], default="test-tone")
     parser.add_argument("--source-text", action="store_true")
+    parser.add_argument("--runtime-url")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(list(argv) if argv is not None else None)
 
@@ -53,13 +55,19 @@ def run_start(argv: Sequence[str] | None = None) -> int:
     if args.bg is not None and not 0 <= args.bg <= 1:
         raise RuntimeError("Background opacity must be between 0 and 1.")
 
+    runtime_base_url = (
+        args.runtime_url
+        or os.environ.get("DESKTOP_CLI_RUNTIME_URL", "")
+        or "ws://127.0.0.1:9000"
+    )
     config = AppConfig(
         provider=provider.canonical_name,
         api_base_url=provider.api_base_url,
         api_key=api_key,
         api_key_env_var=provider.api_key_env_var,
         model_name=model_name,
-        runtime_mode="fake",
+        runtime_base_url=runtime_base_url,
+        runtime_mode="anime-whisper",
         translator_mode="openai-compatible",
         show_source_text=args.source_text or saved.show_source_text,
         font_family=args.font or saved.font_family or DEFAULT_FONT_FAMILY,

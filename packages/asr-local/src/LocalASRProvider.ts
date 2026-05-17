@@ -9,9 +9,10 @@ import type {
   StreamAudioChunk,
   TranscribeFileResponse
 } from './protocol';
+import { WebSocketASRClient } from './WebSocketASRClient';
 
 const DEFAULT_LOCAL_ASR_CONFIG: LocalASRConfig = {
-  baseUrl: 'http://127.0.0.1:8000',
+  baseUrl: 'ws://127.0.0.1:9000',
   timeoutMs: 30_000
 };
 
@@ -33,7 +34,7 @@ export class LocalASRProvider implements ASRProvider {
   private initialized = false;
 
   constructor(options: LocalASRProviderOptions = {}) {
-    this.client = options.client ?? new UnimplementedLocalASRRuntimeClient();
+    this.client = options.client ?? new WebSocketASRClient();
     this.config = options.config ?? DEFAULT_LOCAL_ASR_CONFIG;
   }
 
