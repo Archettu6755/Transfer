@@ -1,188 +1,139 @@
 # Context Handoff
 
-这份笔记只记录 **当前对话里确认过、但没有完整写进 `AGENTS.md` / `AGENTS-2.md` / `target.md` / `implementation.md` 的背景信息**。
+这份笔记记录当前对话里确认过、但没有完整写进 `AGENTS.md` / `target.md` / `implementation.md` 的背景信息。
 
-## 1. 当前分支与远端状态
+## 1. 分支与远端
 
-- 当前工作基线在 `main`
-- 远端使用 `transfer`：`git@github.com:Archettu6755/Transfer.git`
-- `transfer/main` 已同步到：
-  - `5b754e0` `Complete Phase 6 UX polish: auto-hide timer, loopback audio, model refresh, Qt render fix`
-- 旧工作分支 `codex-phase1-ts-validation`：
-  - 本地已删除
-  - 它的工作内容已经并入 `main`
+- 基线 `main`，远端 `git@github.com:Archettu6755/Transfer.git`
+- 最新提交：
+  - `3f9c876` `chore: remove Dolphin ASR integration`
+  - `a2b72e7` `feat: Docker ASR runtime with anime-whisper + CUDA, VAD optimization, WebSocket client`
+- AGENTS-3.md 适用（Docker + WSL2 可用）
 
 ## 2. 已废弃的历史路径
 
-- `apps/extension` 已从当前工作树彻底删除
-- 不再保留 `legacy/extension-archive`
-- extension 只存在于 Git 历史中
-- 当前活动工程只看：
-  - `apps/desktop-cli`
-  - `apps/web-demo`
-  - `packages/shared`
-  - `packages/core`
-  - `packages/asr-local`
-  - `packages/translator`
-  - `packages/subtitle`
+- `apps/extension` 已删除
+- 当前活跃工程：`apps/desktop-cli`、`apps/web-demo`、`packages/shared`、`packages/core`、`packages/asr-local`、`packages/translator`、`packages/subtitle`
+- 新增：`docker/asr-server/`（ASR 运行时）
 
-## 3. 当前 `desktop-cli` 的产品化决定
+## 3. Docker ASR 运行时
 
-- 正式入口：
-  - `desktop-cli init`
-  - `desktop-cli start`
-- 裸命令：
-  - `desktop-cli` 等价于 `desktop-cli start`
-- 正式帮助：
-  - `desktop-cli help`
-- 开发帮助：
-  - `desktop-cli help --dev`
-- 默认帮助不再展示开发命令
-- 开发命令仍保留：
-  - `overlay-demo`
-  - `audio-input-demo`
-  - `session-demo`
+### 3.1 架构
 
-## 4. CLI 配置设计的额外约束
-
-- 不做 TUI
-- 不做 overlay 内设置按钮
-- 不做 GUI 设置面板
-- 正式用户配置当前只走 CLI
-- `api_base_url` 永远不暴露给用户输入
-- provider 由用户直接输入字符串，不做选择菜单
-- model 由用户直接输入字符串，不做选择菜单
-- API key 必须在 CLI 中输入，但 **只允许持久化到 `.env`**
-- 普通配置文件 **不能** 保存 API key
-
-## 5. 本地配置落点
-
-当前 `desktop-cli` 使用：
-
-- 非敏感配置：
-  - `apps/desktop-cli/.desktop-cli.json`
-- API key：
-  - `apps/desktop-cli/.env`
-
-规则：
-
-- 当前进程环境变量优先于 `.env`
-- `.env` 和 `.desktop-cli.json` 都已被 `.gitignore` 忽略
-- `.gitignore` 中也显式列出了这两个文件
-
-## 6. Provider / Model 当前实现状态
-
-provider 表：
-
-- 文件：
-  - `apps/desktop-cli/src/desktop_cli/config/providers.py`
-
-model 表：
-
-- 文件：
-  - `apps/desktop-cli/src/desktop_cli/config/models.py`
-
-当前只是 **最小可用表**，不是完整厂商目录。
-
-已实现的 provider canonical 名：
-
-- `zhipu`
-- `deepseek`（推荐）
-- `qwen`（推荐）
-- `kimi`
-
-已确认可用的 alias 例子：
-
-- `glm` -> `zhipu`
-- `tongyi` -> `qwen`
-- `moonshot` -> `kimi`
-
-归一化规则：
-
-- `strip()`
-- `lower()`
-
-所以大小写和前后空格已兼容。
-
-当前 model 表只保留两档：
-
-- `default`
-- `flagship`
-
-系统仍允许用户自由输入其他 model 名，不做强白名单。
-
-### 6.1 当前模型清单（2026-05-15 更新）
-
-| Provider | Default | Flagship |
-|---|---|---|
-| zhipu | GLM-4.7-FlashX | GLM-4.7 |
-| deepseek | deepseek-v4-flash | deepseek-v4 |
-| qwen | Qwen-MT-Flash | Qwen-MT-Plus |
-| kimi | kimi-k2-0905-preview | kimi-k2.5 |
-
-推荐使用 deepseek 或 qwen。`desktop-cli init` 会在 provider 输入前打印推荐信息。
-
-## 7. 音频输入实现状态
-
-### 7.1 Test Tone（默认）
-
-- 合成 440Hz PCM16 正弦波
-- 不需要真实声卡，适合离线验证
-- 通过 `--audio-source test-tone` 或默认行为使用
-
-### 7.2 WASAPI Loopback
-
-- 捕获 Windows **系统音频输出流**（扬声器播放的内容）
-- 不是麦克风输入，不接受外部麦克风
-- 场景：浏览器播放直播、本地视频/音频文件
-- 原理：`sd.RawInputStream` + `WasapiSettings(loopback=True)` 在输出设备上旁路 PCM 数据
-- 通过 `--audio-source loopback` 启用
-
-### 7.3 使用方式
-
-```powershell
-desktop-cli start --audio-source test-tone
-desktop-cli start --audio-source loopback
+```
+desktop-cli / web-demo → WebSocket → ws://127.0.0.1:9000 → docker-asr-server
 ```
 
-## 8. 字幕 auto-hide 机制
+- `docker/asr-server/Dockerfile` — Python 3.11 + CUDA torch + faster_whisper
+- `docker/asr-server/server.py` — WebSocket 服务，anime-whisper + Silero VAD + chunked 转录
+- `docker/asr-server/download_model.py` — 从 HuggingFace 下载 `litagin/anime-whisper`，CTranslate2 int8 量化
+- `docker/docker-compose.yml` — GPU 透传（`driver: nvidia`），端口 9000
+- 模型路径：容器内 `/app/model`，预编译 CTranslate2 格式 + `preprocessor_config.json`
 
-- 实现在 `SubtitleController`（asyncio），**不在** `OverlayController`
-- 默认 5 秒无新字幕自动隐藏
-- 每次新字幕到达 → 取消旧 timer → 启动新 timer
-- `auto_hide_ms <= 0` 时禁用
+### 3.2 硬件
 
-### 8.1 会话结束行为
+- GPU：NVIDIA RTX 4060 Laptop (8GB)，CUDA 13.1，float16 推理
+- RTF ~0.06x（408s 音频 / 16s 推理）
 
-- 自然结束（音频消费完毕）：**等待** auto-hide 走完，不立即隐藏
-- 用户主动 stop：立即取消 auto-hide + hide + clear
+### 3.3 VAD 演进
 
-## 9. Overlay 渲染修复
+| 阶段 | 方案 | CER |
+|---|---|---|
+| 1 | Energy-based 手写 VAD | 52.4% |
+| 2 | Silero VAD（`vad_filter=True`，默认参数）| 44.4% |
+| 3 | + CUDA float16 | 39.2% |
+| 4 | + Chunked transcription（>25s 强制 15s 分块 + 2s overlap）| **35.8%** |
 
-**问题：** `asyncio.run()` 独占主线程，Qt event loop 饿死，`window.show()` 从未被渲染。
+最终方案：Silero VAD（threshold=0.5, speech_pad=400ms）+ 25s 阈值分块 + `_dedup_segments()`。
 
-**修复：** 在 `OverlayWindow` 的三个方法末尾直接调用 `QApplication.processEvents()`：
+### 3.4 cublas 兼容性
 
-- `update_state()` — 每次 show/hide 后立即渲染
-- `hide_overlay()` — hide 后立即渲染
-- `clear()` — clear 后立即渲染
+Docker 内 CUDA 13 提供了 `libcublas.so.13`，但 faster_whisper/ctranslate2 需要 `.so.12`。
+修复：Dockerfile 创建 symlink + 设置 `LD_LIBRARY_PATH`。
 
-不复用 asyncio pump 方案（从 asyncio task 内调 `processEvents()` 无效）。overlay-demo 不受影响（它走 `app.exec()` Qt 主循环）。
+### 3.5 mel bins 修复
 
-## 10. 真实使用里发现的非 blocker 现象
+`litagin/anime-whisper` 基于 Whisper large-v3（128 mel bins），但 CTranslate2 转换器不复制 `preprocessor_config.json`。
+修复：`download_model.py` 从 HuggingFace 单独下载此文件放入 `/app/model/`。
 
-手动测试里确认过：
+## 4. 客户端（WebSocket 协议）
 
-- `web-demo` 调 DeepSeek 时翻译链路表现正常
-- 某些 GLM coding/planning 类模型会很慢，且可能直接回显原文
-- 当前系统 **没有** 做"译文疑似原文回显"的质量防护
+### 4.1 Python 桌面端
 
-这属于后续质量增强项，不是当前主线断裂。
+- `runtime_client/client.py` — `RuntimeClient` 协议定义
+- `runtime_client/anime_whisper.py` — 真实 WebSocket 客户端，`websockets` 库
+- `runtime_client/fake.py` — Mock 客户端（开发/测试）
+- `start.py` — `runtime_mode="anime-whisper"` 默认，支持 `--runtime-url` 和 `DESKTOP_CLI_RUNTIME_URL` 环境变量
+- `session_demo.py` — 自动 `docker compose up -d` 拉起 ASR 服务
 
-## 11. 当前最可能的后续工作
+### 4.2 TypeScript Web Demo
 
-- WSL 中搭建 Docker + anime-whisper 运行环境
-- 实现 `runtime_client/anime_whisper.py`（当前为 blocker 骨架，仿 `FakeRuntimeClient` 接口实现真实 ASR 通信）
-- `start.py` 接入真实 runtime（当前 `runtime_mode="fake"` 硬编码）
-- live audio 完整本地链路验证
-- 暂不扩充 provider/model 表到完整目录
+- `packages/asr-local/src/WebSocketASRClient.ts` — 浏览器 WebSocket 客户端
+- `packages/asr-local/src/LocalASRProvider.ts` — 默认注入 WebSocket 客户端
+- 四种装配方式全部可用（Mock/Local ASR × Mock/OpenAI-compatible Translator）
+
+### 4.3 协议
+
+```
+Client → Server:
+  {"type":"start-stream","stream_id":"...","source_lang":"ja","sample_rate":16000}
+  {binary: PCM16 bytes}
+  {"type":"finish-stream","stream_id":"..."}
+  {"type":"cancel-stream","stream_id":"...","reason":"..."}
+
+Server → Client:
+  {"type":"stream-started","stream_id":"..."}
+  {"type":"final-transcript","stream_id":"...","segment":{"id":"...","text":"...","is_final":true,...}}
+  {"type":"stream-completed","stream_id":"..."}
+  {"type":"stream-failed","stream_id":"...","message":"...","retryable":false}
+```
+
+## 5. CLI 配置
+
+保持不变（§4–§6 of old context-handoff）。新增：
+
+- `runtime_base_url` 字段（`AppConfig`），默认 `ws://127.0.0.1:9000`
+- `--runtime-url` CLI 参数 / `DESKTOP_CLI_RUNTIME_URL` 环境变量
+- `glossary: dict[str,str]` 字段预留（未接线到 prompt）
+
+## 6. 翻译 Prompt 优化
+
+`openai_compatible.py` 的 system prompt 已升级为 7 条规则：
+口语风格、简洁、保留情感标记、ASR 破损时最佳猜测、游戏术语用饭圈通用译法等。
+Glossary 注入点预留：注释标注接线方式。
+
+## 7. Dolphin 对比实验
+
+- 部署了 `DataoceanAI/dolphin-small`（372M）在 Docker 内与 anime-whisper 并行
+- 完整 24 文件对比评测完成
+- 结果：Dolphin CER 31.1% vs anime-whisper 36.4%（Dolphin 低 5.3pp）
+- Dolphin 在短/长文件、专有名词上更强；anime-whisper 在正常时长干净音频上更好
+- **决定：保留 anime-whisper 为主线，Dolphin 完全清理（`3f9c876`）**
+- 评测数据和报告保留在 `benchmark_report.md` 和 `scripts/compare_results.json`
+- 重新部署 Dolphin 的代价很小（3 个文件改动 + 重建），架构支持
+
+## 8. 评测体系
+
+- 评测集：24 条 Archetto 游戏语音（408s），日文参考文本来自 `voice_source.txt`
+- 数据集：`scripts/eval_dataset.json`（gitignored）
+- 评测脚本：`scripts/benchmark_asr.py`
+- 指标：CER、WER、Sub/Del/Ins、lenR、RTF、Proper Noun CER
+- 报告：`benchmark_report.md`（gitignored）
+
+## 9. 当前已知问题
+
+1. **VAD 首次节丢失** — Silero VAD threshold 0.5 对开头静音段不敏感，`speech_pad_ms` 增加可缓解
+2. **长句 chunk 边界 artifact** — 25s 阈值分块引入少量重复/截断
+3. **专有名词识别率低** — CER 35.8%，PN CER 63.1%（anime-whisper 的薄弱项）
+4. **部分评测数据存疑** — `生日`/`周年庆典` 参考文本可能是中文（非日语音频）
+5. **Docker Desktop 不稳定** — 在 WSL2 中偶尔 SIGBUS 或 I/O error
+6. **评测集太小** — 24 条/408s，结论外推需谨慎
+
+## 10. 明确不做/已延期
+
+- Dolphin 不作为主线（实验完成，已清理）
+- 不做本地子进程方案（保持 Docker 部署契约）
+- Glossary 功能延期至 V2（字段已预留）
+- 微调训练暂不进行（无足够同域标注数据）
+- 不做 GUI 设置面板 / TUI（CLI 唯一配置入口）
+- 不做 Cloud ASR、增量字幕、双语模式、口播人识别等 V2 特性
