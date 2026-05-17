@@ -128,7 +128,6 @@ class Transcriber:
         for seg in segments[1:]:
             prev_text = kept[-1].text
             curr_text = seg.text
-            # Skip if current segment is a substring of previous or vice versa
             if curr_text in prev_text or prev_text in curr_text:
                 if len(curr_text) > len(prev_text):
                     kept[-1] = seg
