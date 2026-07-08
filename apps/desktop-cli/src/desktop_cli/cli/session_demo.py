@@ -35,7 +35,11 @@ def run_configured_session(
         print(f"{command_name} dry run OK")
         return 0
 
-    _ensure_asr_server(config)
+    try:
+        _ensure_asr_server(config)
+    except RuntimeError as exc:
+        print(f"{command_name} failed: {exc}")
+        return 1
 
     from desktop_cli.overlay_window.window import OverlayWindow, ensure_pyside6_available
 
@@ -148,9 +152,13 @@ def _ensure_asr_server(config: AppConfig) -> None:
         return
 
     print("Ensuring anime-whisper ASR server is running...")
-    subprocess.run(
+    result = subprocess.run(
         ["docker", "compose", "-f", str(compose_file), "up", "-d"],
         check=False,
         capture_output=True,
+        text=True,
     )
+    if result.returncode != 0:
+        details = (result.stderr or result.stdout or "docker compose failed").strip()
+        raise RuntimeError(f"Could not start anime-whisper ASR server: {details}")
     time.sleep(2)

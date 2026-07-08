@@ -89,7 +89,7 @@ class LoopbackAudioInput:
         try:
             pcm_bytes = self._queue.get(timeout=1.0)
         except Empty:
-            return None
+            pcm_bytes = self._build_silence_chunk()
 
         chunk = AudioChunk(
             chunk_id=self._chunk_id,
@@ -147,3 +147,7 @@ class LoopbackAudioInput:
             raise RuntimeError(
                 "WASAPI loopback could not be enabled in this sounddevice build."
             ) from exc
+
+    def _build_silence_chunk(self) -> bytes:
+        samples = int(self.config.sample_rate * self.config.chunk_ms / 1000)
+        return b"\x00\x00" * samples * self.config.channels

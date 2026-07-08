@@ -1,9 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import wave
 
+import pytest
+
+import desktop_cli.runtime_client.anime_whisper as anime_whisper_module
 from desktop_cli.audio_input import AudioChunk
 from desktop_cli.runtime_client import (
+    AnimeWhisperRuntimeClient,
     AudioInputPayload,
     CancelStreamRequest,
     FakeRuntimeClient,
@@ -75,3 +81,58 @@ def test_fake_runtime_finish_cancel_and_transcribe_file_paths_are_readable() -> 
     assert response_text == "これはフェイク runtime の最終文字起こしです。"
     assert finish_events[-1].type == "stream-completed"
     assert cancel_events[-1].type == "stream-completed"
+
+
+def test_anime_whisper_transcribe_file_raises_readable_error_on_stream_failure(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    wav_path = tmp_path / "sample.wav"
+    with wave.open(str(wav_path), "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(16_000)
+        wf.writeframes(b"\x00\x00" * 1600)
+
+    class FakeWebSocket:
+        def __init__(self) -> None:
+            self.sent: list[object] = []
+            self._events = [
+                {
+                    "type": "stream-failed",
+                    "stream_id": "req-1",
+                    "message": "runtime failed",
+                    "retryable": False,
+                }
+            ]
+
+        async def send(self, message: object) -> None:
+            self.sent.append(message)
+
+        async def recv(self) -> str:
+            if self._events:
+                return json.dumps(self._events.pop(0))
+            await asyncio.sleep(1)
+            return ""
+
+        async def close(self) -> None:
+            pass
+
+    async def fake_connect(_url: str) -> FakeWebSocket:
+        return FakeWebSocket()
+
+    monkeypatch.setattr(anime_whisper_module.websockets, "connect", fake_connect)
+    client = AnimeWhisperRuntimeClient()
+
+    async def run_test() -> None:
+        await client.init(RuntimeClientConfig(base_url="ws://runtime"))
+        await client.transcribe_file(
+            TranscribeFileRequest(
+                request_id="req-1",
+                audio=AudioInputPayload(id="audio-1", sample_rate=16_000),
+                file_name=str(wav_path),
+            )
+        )
+
+    with pytest.raises(RuntimeError, match="runtime failed"):
+        asyncio.run(run_test())

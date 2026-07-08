@@ -8,17 +8,12 @@ export class MockASRProvider implements ASRProvider {
   async init(): Promise<void> {}
 
   async recognize(audio: AudioInput, lang: SourceLanguage): Promise<ASRResult> {
-    const startedAt = Date.now();
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, 200);
-    });
-
     return {
       id: audio.id,
       text: MOCK_ASR_TEXT[lang],
       lang,
       timestamp: Date.now(),
-      latencyMs: Date.now() - startedAt
+      latencyMs: 0
     };
   }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { LocalASRProvider } from './LocalASRProvider';
+import { WebSocketASRClient } from './WebSocketASRClient';
 import type {
   CancelStreamRequest,
   FinishStreamRequest,
@@ -113,5 +114,117 @@ describe('LocalASRProvider', () => {
   it('uses WebSocketASRClient by default', () => {
     const provider = new LocalASRProvider();
     expect(provider).toBeDefined();
+  });
+});
+
+describe('WebSocketASRClient', () => {
+  it('normalizes snake_case runtime events before invoking stream callbacks', async () => {
+    const originalWebSocket = globalThis.WebSocket;
+    const sentMessages: string[] = [];
+    let socketInstance: FakeWebSocket | null = null;
+
+    class FakeWebSocket {
+      static OPEN = 1;
+      readyState = FakeWebSocket.OPEN;
+      onopen: (() => void) | null = null;
+      onmessage: ((event: { data: string }) => void) | null = null;
+      onerror: (() => void) | null = null;
+      onclose: (() => void) | null = null;
+
+      constructor(_url: string) {
+        socketInstance = this;
+        queueMicrotask(() => this.onopen?.());
+      }
+
+      send(message: string | ArrayBuffer): void {
+        if (typeof message === 'string') {
+          sentMessages.push(message);
+        }
+      }
+
+      close(): void {
+        this.onclose?.();
+      }
+    }
+
+    vi.stubGlobal('WebSocket', FakeWebSocket);
+    const client = new WebSocketASRClient();
+    const onEvent = vi.fn();
+
+    const started = client.openStream(
+      {
+        type: 'start-stream',
+        streamId: 'stream-1',
+        sourceLang: 'ja',
+        sampleRate: 16_000
+      },
+      onEvent
+    );
+
+    await vi.waitFor(() => {
+      expect(socketInstance).not.toBeNull();
+    });
+    const socket = socketInstance as unknown as FakeWebSocket;
+    socket.onmessage?.({
+      data: JSON.stringify({
+        type: 'stream-started',
+        stream_id: 'stream-1'
+      })
+    });
+
+    await started;
+    socket.onmessage?.({
+      data: JSON.stringify({
+        type: 'final-transcript',
+        stream_id: 'stream-1',
+        segment: {
+          id: 'seg-1',
+          text: '今日はマイクラをやります。',
+          is_final: true,
+          start_ms: 0,
+          end_ms: 1200
+        }
+      })
+    });
+    socket.onmessage?.({
+      data: JSON.stringify({
+        type: 'stream-failed',
+        stream_id: 'stream-1',
+        message: 'runtime failed',
+        retryable: false
+      })
+    });
+
+    expect(sentMessages[0]).toContain('"stream_id":"stream-1"');
+    expect(onEvent).toHaveBeenCalledWith({
+      type: 'stream-started',
+      streamId: 'stream-1'
+    });
+    expect(onEvent).toHaveBeenCalledWith({
+      type: 'final-transcript',
+      streamId: 'stream-1',
+      segment: {
+        id: 'seg-1',
+        text: '今日はマイクラをやります。',
+        isFinal: true,
+        startMs: 0,
+        endMs: 1200
+      }
+    });
+    expect(onEvent).toHaveBeenCalledWith({
+      type: 'stream-failed',
+      streamId: 'stream-1',
+      error: {
+        code: 'runtime_error',
+        message: 'runtime failed',
+        retryable: false
+      }
+    });
+
+    if (originalWebSocket === undefined) {
+      vi.unstubAllGlobals();
+    } else {
+      vi.stubGlobal('WebSocket', originalWebSocket);
+    }
   });
 });

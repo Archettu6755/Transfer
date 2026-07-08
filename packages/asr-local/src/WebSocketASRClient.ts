@@ -2,6 +2,8 @@ import type {
   CancelStreamRequest,
   FinishStreamRequest,
   LocalASRConfig,
+  LocalASRErrorCode,
+  LocalASRSegment,
   LocalASRRuntimeClient,
   LocalASRStreamEvent,
   StartStreamRequest,
@@ -20,6 +22,84 @@ function float32ToPcm16(data: Float32Array): ArrayBuffer {
     view.setInt16(i * 2, int16, true);
   }
   return buffer;
+}
+
+interface RawRuntimeEvent {
+  type?: string;
+  stream_id?: string;
+  streamId?: string;
+  segment?: {
+    id?: string;
+    text?: string;
+    is_final?: boolean;
+    isFinal?: boolean;
+    start_ms?: number;
+    startMs?: number;
+    end_ms?: number;
+    endMs?: number;
+  };
+  message?: string;
+  retryable?: boolean;
+  error?: {
+    code?: LocalASRErrorCode;
+    message?: string;
+    retryable?: boolean;
+  };
+}
+
+function normalizeRuntimeEvent(raw: RawRuntimeEvent): LocalASRStreamEvent | null {
+  const streamId = raw.streamId ?? raw.stream_id ?? '';
+
+  if (raw.type === 'stream-started') {
+    return { type: 'stream-started', streamId };
+  }
+
+  if (raw.type === 'stream-completed') {
+    return { type: 'stream-completed', streamId };
+  }
+
+  if (raw.type === 'final-transcript' || raw.type === 'partial-transcript') {
+    const segment = normalizeSegment(raw.segment);
+    if (!segment) {
+      return null;
+    }
+    return {
+      type: raw.type,
+      streamId,
+      segment
+    };
+  }
+
+  if (raw.type === 'stream-failed') {
+    return {
+      type: 'stream-failed',
+      streamId,
+      error: {
+        code: raw.error?.code ?? 'runtime_error',
+        message: raw.error?.message ?? raw.message ?? 'ASR stream failed.',
+        retryable: raw.error?.retryable ?? raw.retryable ?? false
+      }
+    };
+  }
+
+  return null;
+}
+
+function normalizeSegment(raw: RawRuntimeEvent['segment']): LocalASRSegment | null {
+  if (!raw) {
+    return null;
+  }
+
+  const startMs = raw.startMs ?? raw.start_ms;
+  const endMs = raw.endMs ?? raw.end_ms;
+
+  return {
+    id: raw.id ?? '',
+    text: raw.text ?? '',
+    isFinal: raw.isFinal ?? raw.is_final ?? false,
+    ...(startMs === undefined ? {} : { startMs }),
+    ...(endMs === undefined ? {} : { endMs })
+  };
 }
 
 export class WebSocketASRClient implements LocalASRRuntimeClient {
@@ -51,7 +131,7 @@ export class WebSocketASRClient implements LocalASRRuntimeClient {
 
       ws.onmessage = (event) => {
         if (typeof event.data !== 'string') return;
-        const msg = JSON.parse(event.data);
+        const msg = JSON.parse(event.data) as RawRuntimeEvent;
         if (msg.type === 'stream-started' && request.audio.data.length > 0) {
           const pcm = float32ToPcm16(request.audio.data);
           ws.send(pcm);
@@ -74,7 +154,7 @@ export class WebSocketASRClient implements LocalASRRuntimeClient {
           ws.close();
           reject(
             new Error(
-              msg.message || 'ASR stream failed.'
+              msg.error?.message || msg.message || 'ASR stream failed.'
             )
           );
         }
@@ -121,8 +201,11 @@ export class WebSocketASRClient implements LocalASRRuntimeClient {
 
       ws.onmessage = (event) => {
         if (typeof event.data !== 'string') return;
-        const msg = JSON.parse(event.data);
-        onEvent(msg as LocalASRStreamEvent);
+        const msg = JSON.parse(event.data) as RawRuntimeEvent;
+        const normalized = normalizeRuntimeEvent(msg);
+        if (normalized) {
+          onEvent(normalized);
+        }
 
         if (msg.type === 'stream-started') {
           resolve();

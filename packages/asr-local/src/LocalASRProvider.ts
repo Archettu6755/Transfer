@@ -67,49 +67,6 @@ export class LocalASRProvider implements ASRProvider {
   }
 }
 
-class UnimplementedLocalASRRuntimeClient implements LocalASRRuntimeClient {
-  async init(_config: LocalASRConfig): Promise<void> {
-    throw new Error(
-      'Local anime-whisper runtime scaffolding exists, but real runtime integration is not developed on this workstation.'
-    );
-  }
-
-  async transcribeFile(_request: {
-    requestId: string;
-    audio: AudioInput;
-    sourceLang: SourceLanguage;
-  }): Promise<TranscribeFileResponse> {
-    throw new Error(
-      'Local anime-whisper runtime scaffolding exists, but file transcription is not implemented on this workstation.'
-    );
-  }
-
-  async openStream(
-    _request: StartStreamRequest,
-    _onEvent: (event: LocalASRStreamEvent) => void
-  ): Promise<void> {
-    throw new Error(
-      'Local anime-whisper runtime scaffolding exists, but stream startup is not implemented on this workstation.'
-    );
-  }
-
-  async sendAudioChunk(_chunk: StreamAudioChunk): Promise<void> {
-    throw new Error(
-      'Local anime-whisper runtime scaffolding exists, but audio chunk streaming is not implemented on this workstation.'
-    );
-  }
-
-  async finishStream(_request: FinishStreamRequest): Promise<void> {
-    throw new Error(
-      'Local anime-whisper runtime scaffolding exists, but stream completion is not implemented on this workstation.'
-    );
-  }
-
-  async cancelStream(_request: CancelStreamRequest): Promise<void> {}
-
-  async dispose(): Promise<void> {}
-}
-
 export class LocalASRStreamSession {
   private started = false;
 

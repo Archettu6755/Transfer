@@ -74,21 +74,23 @@ class AnimeWhisperRuntimeClient:
                 "sample_rate": sample_rate,
             }))
             events = await self._drain_ws(ws)
+            self._raise_if_failed(events)
             started = any(
                 e for e in events if e["type"] == "stream-started"
             )
             if not started:
-                return TranscribeFileResponse(
-                    request_id=request.request_id,
-                    text="",
-                    lang=request.source_lang,
-                )
+                raise RuntimeError("anime-whisper ASR server did not acknowledge stream startup.")
 
             chunk_size = int(sample_rate * 0.1) * 2
             for offset in range(0, len(pcm_data), chunk_size):
                 chunk = pcm_data[offset : offset + chunk_size]
                 await ws.send(chunk)
                 for event in await self._drain_ws(ws):
+                    if event["type"] == "stream-failed":
+                        await ws.close()
+                        raise RuntimeError(
+                            str(event.get("message") or "anime-whisper ASR stream failed.")
+                        )
                     if event["type"] == "final-transcript":
                         seg = event.get("segment", {})
                         text = seg.get("text", "")
@@ -102,20 +104,14 @@ class AnimeWhisperRuntimeClient:
                             text=text,
                             lang=request.source_lang,
                         )
-                    if event["type"] == "stream-failed":
-                        await ws.close()
-                        return TranscribeFileResponse(
-                            request_id=request.request_id,
-                            text="",
-                            lang=request.source_lang,
-                        )
-
             await ws.send(json.dumps({
                 "type": "finish-stream",
                 "stream_id": request.request_id,
             }))
             text = ""
-            for event in await self._drain_ws(ws, flush=True):
+            events = await self._drain_ws(ws, flush=True)
+            self._raise_if_failed(events)
+            for event in events:
                 if event["type"] == "final-transcript":
                     seg = event.get("segment", {})
                     text = seg.get("text", "")
@@ -263,6 +259,13 @@ class AnimeWhisperRuntimeClient:
                 retryable=data.get("retryable", False),
             )
         return None
+
+    @staticmethod
+    def _raise_if_failed(events: list[dict[str, object]]) -> None:
+        for event in events:
+            if event.get("type") == "stream-failed":
+                message = str(event.get("message") or "anime-whisper ASR stream failed.")
+                raise RuntimeError(message)
 
     async def _close_ws(self) -> None:
         ws = self._ws

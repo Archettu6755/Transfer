@@ -1,16 +1,18 @@
 # desktop-cli
 
-Phase 0 scaffold for the local desktop subtitle product.
+Local Python CLI for the desktop subtitle product.
 
 Current scope:
 
-- Python CLI entrypoint
-- package/module layout
-- config boundary placeholder
+- `init` stores local provider, model, API key environment variable, and display settings
+- `start` runs the formal local workflow with fixed `ja -> zh-CN`
+- mock and anime-whisper runtime clients
+- mock and OpenAI-compatible translator clients
+- local PySide6 overlay window
+- test-tone and WASAPI loopback audio input boundaries
 
-Not implemented in this phase:
+Development commands:
 
-- runtime client behavior
-- translator client behavior
-- overlay window behavior
-- live audio input
+- `overlay-demo`
+- `audio-input-demo`
+- `session-demo`

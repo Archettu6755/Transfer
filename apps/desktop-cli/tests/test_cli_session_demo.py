@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 
 from desktop_cli.cli.main import main
@@ -84,3 +85,36 @@ def test_session_demo_anime_whisper_mode_reports_connection_failure_readably(
         assert "session-demo completed" in captured.out
         return
     assert "anime-whisper ASR server" in captured.out or "Could not connect" in captured.out
+
+
+def test_session_demo_reports_docker_compose_start_failure_readably(
+    monkeypatch,
+    capsys,
+) -> None:
+    def fake_run(*_args, **_kwargs):
+        return subprocess.CompletedProcess(
+            args=["docker", "compose"],
+            returncode=1,
+            stdout="",
+            stderr="compose failed",
+        )
+
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    monkeypatch.setattr("desktop_cli.cli.session_demo.subprocess.run", fake_run)
+
+    result = run_session_demo(
+        [
+            "--runtime-mode",
+            "anime-whisper",
+            "--translator-mode",
+            "mock",
+            "--audio-source",
+            "test-tone",
+            "--duration-ms",
+            "200",
+        ]
+    )
+
+    assert result == 1
+    captured = capsys.readouterr()
+    assert "compose failed" in captured.out

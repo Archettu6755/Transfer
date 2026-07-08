@@ -37,6 +37,7 @@ Thumbs.db
 # Benchmark data & results
 apps/desktop-cli/scripts/eval_dataset.json
 apps/desktop-cli/scripts/benchmark_results.json
+apps/desktop-cli/scripts/compare_results.json
 benchmark_report.md
 
 # Docker model cache

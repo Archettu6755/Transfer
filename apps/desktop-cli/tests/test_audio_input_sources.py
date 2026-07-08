@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from queue import Queue
+
 import pytest
 
 from desktop_cli.audio_input import AudioInputConfig, LoopbackAudioInput, TestToneAudioInput
@@ -51,3 +53,19 @@ def test_loopback_audio_input_raises_readable_error_when_sounddevice_unavailable
 
     with pytest.raises(RuntimeError, match="sounddevice"):
         source.start()
+
+
+def test_loopback_audio_input_timeout_returns_silence_chunk_instead_of_end_signal() -> None:
+    source = LoopbackAudioInput(AudioInputConfig(source="loopback", chunk_ms=100))
+    source._running = True
+    source._queue = Queue()
+
+    chunk = source.read_chunk()
+
+    assert chunk is not None
+    assert chunk.chunk_id == 0
+    assert chunk.sample_rate == 16_000
+    assert chunk.channels == 1
+    assert chunk.duration_ms == 100
+    assert len(chunk.pcm_bytes) == 3200
+    assert set(chunk.pcm_bytes) == {0}
