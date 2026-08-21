@@ -1,0 +1,56 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "live-translator-windows"
+version = "0.1.0"
+description = "Windows client for live Japanese-to-Chinese subtitles"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "certifi>=2024.8.30",
+  "httpx>=0.28,<1",
+  "numpy>=2.2,<3",
+  "PyAudioWPatch==0.2.12.8; sys_platform == 'win32'",
+  "PySide6-Essentials>=6.10,<6.12",
+  "soxr>=1.1,<2",
+  "websockets>=14,<16",
+]
+
+[project.scripts]
+live-translator = "live_translator.bootstrap:main"
+
+[dependency-groups]
+dev = [
+  "jsonschema>=4.23,<5",
+  "pyright>=1.1.400,<2",
+  "pytest>=8.3,<9",
+  "pytest-asyncio>=0.25,<2",
+  "ruff>=0.11,<1",
+]
+package = [
+  "pyinstaller>=6.16,<7",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/live_translator"]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+asyncio_mode = "auto"
+pythonpath = [".."]
+testpaths = ["tests"]
+
+[tool.pyright]
+include = ["src", "tests", "packaging/windows_entry.py", "../scripts/check_repository.py"]
+extraPaths = ["src", ".."]
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "RUF"]
+allowed-confusables = ["，", "："]
