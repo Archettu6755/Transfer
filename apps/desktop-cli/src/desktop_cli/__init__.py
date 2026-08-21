@@ -1,1 +1,0 @@
-"""desktop_cli package."""

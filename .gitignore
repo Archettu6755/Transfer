@@ -1,47 +1,54 @@
-# Dependencies
-node_modules/
-.pnpm-store/
+# The retired repository is local reference material, not part of V2.
+/Transfer/
 
-# Build output
-dist/
-build/
-coverage/
-.vite/
+# Local credentials and machine-specific configuration.
+**/.env
+**/.env.*
+!**/.env.example
+**/config.toml
+**/credentials.json
+**/secrets.*
+*.key
+*.pem
+*.p12
+*.pfx
 
-# Local environment
-.env
-.env.*
-!.env.example
-.desktop-cli.json
+# Python environments, caches, coverage, and build output.
 .venv/
-__pycache__/
-*.pyc
-
-# Logs
+**/.venv/
+.uv-cache/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+**/.pytest_cache/
+.pyright/
+**/.pyright/
+.ruff_cache/
+**/.ruff_cache/
+.coverage
+htmlcov/
 *.log
-npm-debug.log*
-pnpm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+build/
+dist/
+**/build/
+**/dist/
+*.egg-info/
 
-# OS / editor
-.DS_Store
-Thumbs.db
+# Downloaded models and generated artifacts never belong in Git.
+models/
+artifacts/
+*.ckpt
+*.bin
+*.engine
+*.gguf
+*.onnx
+*.pt
+*.pth
+*.safetensors
+
+# Editor and operating-system files.
 .idea/
 .vscode/
-
-# Extension packaging
-*.crx
-*.pem
-
-# Benchmark data & results
-apps/desktop-cli/scripts/eval_dataset.json
-apps/desktop-cli/scripts/benchmark_results.json
-apps/desktop-cli/scripts/compare_results.json
-benchmark_report.md
-
-# Docker model cache
-docker/asr-server/.cache/
-
-# PyTorch / HF cache in home
-models/
+.DS_Store
+Thumbs.db
+desktop.ini

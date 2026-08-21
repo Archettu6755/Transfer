@@ -1,0 +1,71 @@
+[
+  {
+    "name": "start",
+    "direction": "client-to-server",
+    "payload": {
+      "type": "stream.start",
+      "session_id": "contract-session",
+      "sample_rate": 16000,
+      "channels": 1,
+      "encoding": "pcm_s16le",
+      "language": "ja"
+    }
+  },
+  {
+    "name": "stop",
+    "direction": "client-to-server",
+    "payload": {
+      "type": "stream.stop",
+      "session_id": "contract-session"
+    }
+  },
+  {
+    "name": "ready",
+    "direction": "server-to-client",
+    "payload": {
+      "type": "stream.ready",
+      "session_id": "contract-session"
+    }
+  },
+  {
+    "name": "final",
+    "direction": "server-to-client",
+    "payload": {
+      "type": "transcript.final",
+      "session_id": "contract-session",
+      "seq": 1,
+      "text": "今日はこのゲームをやります",
+      "audio_start_ms": 0,
+      "audio_end_ms": 3280,
+      "decode_ms": 310
+    }
+  },
+  {
+    "name": "overloaded",
+    "direction": "server-to-client",
+    "payload": {
+      "type": "runtime.overloaded",
+      "session_id": "contract-session",
+      "dropped_audio_ms": 1200
+    }
+  },
+  {
+    "name": "stopped",
+    "direction": "server-to-client",
+    "payload": {
+      "type": "stream.stopped",
+      "session_id": "contract-session"
+    }
+  },
+  {
+    "name": "error",
+    "direction": "server-to-client",
+    "payload": {
+      "type": "error",
+      "session_id": "contract-session",
+      "code": "runtime_unavailable",
+      "message": "ASR service is not ready.",
+      "retryable": true
+    }
+  }
+]

@@ -1,477 +1,220 @@
-# AGENTS.md — Agent Workflow Contract
-
-> This document defines how coding agents must work in this repository.
-> `AGENTS-2.md` and `AGENTS-3.md` are the local-environment execution
-> contracts. They are mutually exclusive — read both, but only apply
-> the one that matches the current workstation. If uncertain which
-> applies, ask the user.
-> `target.md` is the product contract. `implementation.md` is the engineering contract.
-> Agents must read all five documents before making changes.
-
----
-
-## 1. Primary Principles
-
-1. **`target.md` is the source of truth for product scope.**
-   - Product shape, supported languages, user-facing behavior, and non-goals are defined there.
-   - Do not add features outside `target.md`.
-
-2. **`implementation.md` is the source of truth for engineering shape.**
-   - Package boundaries, runtime responsibilities, module layout, and phase deliverables are defined there.
-   - Do not invent a different architecture without user approval.
-
-3. **`AGENTS-2.md` and `AGENTS-3.md` define the current workstation's execution limits.**
-     They are mutually exclusive:
-     - `AGENTS-2.md` — applies when Docker / WSL2 are NOT available
-     - `AGENTS-3.md` — applies when Docker / WSL2 ARE available
-   - The agent reads both, determines which applies (or asks the user), and follows only that one.
-   - If a task conflicts with the active constraint file, stop and report it.
-
-4. **Mock first, real implementation second.**
-   - Every major module must have a mock or validation path before the real runtime path.
-   - File-based and mocked validation must work before live-audio runtime integration.
+# AGENTS.md
 
-5. **Small changes only.**
-   - Complete one phase or one clearly scoped task at a time.
-   - Do not implement future features “just in case.”
+本文件适用于仓库根目录及其子目录，但不适用于 `Transfer/`。它规定项目的固定架构、开发位置、平台边界、验证要求和交接格式。
 
-6. **Validate after every meaningful change.**
-   - Run the relevant build/typecheck/test command.
-   - Do not report success if validation fails.
+## 1. 资料优先级
 
----
-
-## 2. MVP Hard Constraints
+按以下顺序判断任务：
 
-The MVP supports only:
+1. 用户当前请求。
+2. 本文件。
+3. `LIVE_TRANSLATOR_V2_PLAN.md`。
+4. `contracts/`、源码和测试所证明的当前行为。
+5. `Transfer/` 中的旧实验记录。
 
-### Source language
+文档与代码冲突时，不要猜测哪一边正确。先查测试和实际运行结果，再修正文档或实现。
 
-| Language | Code |
-|---|---|
-| Japanese | `ja` |
+## 2. 固定开发和运行拓扑
 
-### Target language
+长期开发环境只有一份源码，必须位于 WSL2 的 Linux 文件系统，例如 `~/src/live-translator`。Codex、Claude Code、Git、uv、Python、编辑器后端和 Docker CLI 都从 WSL shell 启动。不要把活跃 checkout 放在 `/mnt/c`、`/mnt/d` 或其他 Windows 挂载目录，也不要维护 Windows 与 WSL 两份 checkout。
 
-| Language | Code |
-|---|---|
-| Simplified Chinese | `zh-CN` |
+远端尚未建立前，当前 Windows 工作区可以只作为一次性迁移暂存区，用于完成审查、初始 commit 和 push。它不是长期开发 checkout。远端可用后，停止在该目录继续功能开发，并在 WSL Linux 文件系统重新 clone。
 
-Only supported direction:
+目标 Windows 物理机不安装 Python、uv、Conda、编译器或项目源码。Windows 只运行由 Windows CI 构建的便携客户端。客户端使用 PyInstaller onedir ZIP，解压即可运行。
 
-```text
-ja -> zh-CN
-```
+运行时仍然是两个隔离组件：
 
-The MVP must not implement:
+| 位置 | 组件 | 职责 |
+| --- | --- | --- |
+| Windows 11 | `LiveTranslator.exe` | WASAPI loopback、重采样、ASR WebSocket client、翻译、状态和 PySide6 字幕窗口 |
+| WSL2 的 Docker Desktop backend | ASR 容器 | VAD、Dolphin、CUDA、模型缓存、`/health`、`/ready` 和 WebSocket 服务 |
 
-- Automatic language detection
-- Korean support
-- Japanese output subtitles
-- Cloud ASR
-- Browser extension delivery
-- Browser page-injected subtitle overlay
-- LLM correction before translation
-- User glossary / terminology table
-- Terminology / glossary injection into prompts
-- Incremental subtitle updates
-- Formal bilingual subtitle mode
-- Rolling subtitle history
-- Advanced multi-line subtitle layout modes
-- Speaker diarization
-- AI dubbing
-- Subtitle export
-- Account system
-- Cloud sync
-- Payment or subscription system
+两侧只通过 `127.0.0.1` 上的 HTTP/WebSocket 通信。音频不得通过共享文件或 bind mount 传递。模型缓存放在 Docker named volume 中。翻译 API key 只留在 Windows 用户目录，不能进入 WSL、Compose 或容器。
 
-Do not add placeholders, enum values, TODOs, routes, feature flags, UI controls, or hidden configuration for these deferred features.
-Do not implement any V2 feature unless the user explicitly revises the project specification documents first.
+不要把“全部在 WSL 开发”误写成“Windows 客户端也在 Linux 运行”。WASAPI 和原生桌面窗口要求客户端在 Windows 进程中运行。
 
----
+## 3. 产品范围
 
-## 3. Required Task Workflow
+项目供个人在 Windows 11 上使用，只支持日语语音到简体中文字幕。
 
-Agents must follow this workflow for every task.
+| 项目 | 固定选择 |
+| --- | --- |
+| 源语言 | `ja` |
+| 目标语言 | `zh-CN` |
+| Windows 客户端 | Python 3.12、PySide6、PyAudioWPatch、soxr |
+| 音频来源 | WASAPI loopback |
+| ASR 通信 | localhost WebSocket |
+| ASR 模型 | `DataoceanAI/dolphin-small` |
+| ASR 环境 | Docker Desktop、WSL2、NVIDIA GPU |
+| 翻译 | 用户自建的 Anthropic Messages API 兼容接口 |
+| 字幕事件 | 只消费 final，不定义或显示 partial |
 
-```text
-Step 1. Understand
-  - Read AGENTS.md, AGENTS-2.md, AGENTS-3.md, target.md, and implementation.md.
-  - Locate the phase or feature being requested.
-  - If the user request conflicts with target.md, state the conflict.
-  - If the task requires real anime-whisper runtime work on this machine, state the AGENTS-2.md conflict.
+除非用户先改变范围，不增加多模型切换、CPU ASR、云端 ASR、浏览器扩展、OBS 插件、TTS、说话人分离、人声分离、字幕历史、术语表编辑器、自动更新或安装器。
 
-Step 2. Scope
-  - List files to be added / modified / removed.
-  - Confirm the change stays within MVP language and feature scope.
-  - Ask if the task requires scope expansion.
+## 4. 目录和 Git 边界
 
-Step 3. Implement
-  - Make the smallest working change.
-  - Keep UI, runtime-client, translator, and subtitle responsibilities separated.
-  - Follow provider or client interfaces and dependency injection.
+`windows-client/` 是 Windows 客户端源码。`contracts/` 是 Windows 客户端与未来 ASR 服务共享的协议事实来源。`.github/workflows/ci.yml` 负责 Linux 检查和 Windows 打包。`scripts/` 只放跨仓库检查或开发脚本。
 
-Step 4. Validate
-  - Run relevant commands.
-  - Fix failures within the current scope.
-  - If blocked, stop and report the blocker.
+`Transfer/` 是废弃旧仓库，带独立 `.git`。它默认只读，不属于新产品，不是依赖，也不参加根仓库的 Git、测试、格式化、类型检查、安全扫描或代码审查。不要读取其中的 `AGENTS*.md` 来控制新项目。只有用户明确要求处理旧仓库时才进入该目录。
 
-Step 5. Report
-  - List changed files.
-  - Summarize what was implemented.
-  - Include validation commands and results.
-  - State remaining work.
-```
+执行 Git 命令前先确认当前目录和根目录是否已有 `.git`。不要把 `Transfer/` 的提交、分支、远端或嵌套历史当成新项目状态。根仓库的 `.gitignore` 必须继续排除 `/Transfer/`。
 
----
+## 5. 平台能力门槛
 
-## 4. Coding Constraints
+### 5.1 WSL 开发机
 
-### 4.1 Primary Implementation Language
-
-- The main product path is Python.
-- The local desktop workflow must be built around Python CLI orchestration and a local overlay window.
-- Existing TypeScript code may remain only where the product specs still allow it, such as the web demo validation tool.
-
-### 4.2 Python
-
-- Use Python 3.11+ unless the user explicitly changes the runtime target.
-- Use type hints.
-- Keep modules small and readable.
-- Prefer dataclasses or small typed models for runtime events and subtitle state.
-- Use `asyncio` where asynchronous runtime or translator coordination is required.
-
-### 4.3 Language Types
-
-- All product logic must treat the language direction as fixed.
-- Do not reintroduce source-language or target-language selectors into the main product path.
-- Do not add unsupported language codes such as `ko`, `en`, `zh`, `fr`, or `de`.
-
-Allowed language codes:
-
-```ts
-type SourceLanguage = 'ja';
-type TargetLanguage = 'zh-CN';
-```
-
-### 4.4 API Key Safety
-
-API keys may exist only in:
-
-- User-entered runtime UI state
-- Local config or environment storage that is ignored by Git
-- A local desktop settings store if the implementation later adds one
-
-API keys must never be:
-
-- Hardcoded in source files
-- Hardcoded in tests
-- Committed in config files
-- Printed with `console.log`, `print`, or equivalent debug output
-- Included in overlay text
-- Included in raw error messages shown to users
-
-Provider mappings may exist as a convenience layer for OpenAI-compatible services, but they must follow these rules:
-
-- The local CLI product path may normalize provider aliases into a canonical provider id
-- The local CLI product path may derive a fixed Base URL from the canonical provider
-- API keys must remain user-provided and must never be bundled into provider definitions
-- API keys may be persisted only in local environment storage such as a Git-ignored `.env` file
-- The local CLI product path must not expose `api_base_url` as a user-facing input
-
-### 4.5 Provider and Client Architecture
-
-The real ASR target is `anime-whisper`, but the product code must still separate:
-
-- audio input
-- runtime client
-- translator client
-- subtitle controller
-- overlay window
-
-Forbidden:
-
-```py
-# Forbidden inside a controller or orchestration layer
-from anime_whisper_runtime import EmbeddedRuntime
-embedded_runtime = EmbeddedRuntime()
-```
-
-Allowed:
-
-```py
-controller = SubtitleController(
-    runtime_client=runtime_client,
-    translator_client=translator_client,
-    overlay=overlay_window,
-    settings=settings,
-)
-```
-
-### 4.6 Mock and Validation Paths
-
-Mock or validation paths must:
-
-- Be implemented before the real runtime path is considered complete
-- Not depend on Docker or WSL2
-- Be usable in tests and the file-based validation flow
-- Preserve the fixed `ja -> zh-CN` product direction
-
-### 4.7 Overlay Window Rules
-
-- The MVP subtitle UI is a local overlay window, not a browser page overlay.
-- The overlay window must only render subtitle state and receive update events.
-- The overlay window must not directly run ASR or translation.
-- MVP behavior is fixed to:
-  - final transcript only
-  - latest single subtitle only
-  - translated text first
-  - optional source text
-  - basic wrapping only
-
-### 4.8 Error Handling
-
-- Runtime client requests must use readable error handling.
-- Translator requests must use readable error handling.
-- Audio input failures must surface readable user errors.
-- Errors must propagate to the CLI or local UI in a user-readable way.
-- Do not swallow failures silently.
-
----
-
-## 5. File Operation Rules
-
-### Allowed code directories
-
-| Path | Permission | Purpose |
-|---|---|---|
-| `apps/desktop-cli/` | read/write | Main local product path |
-| `apps/web-demo/` | read/write | File-based validation tool |
-| `packages/shared/` | read/write | Shared types and constants only |
-| `packages/core/` | read/write | Pipeline or shared orchestration logic |
-| `packages/asr-local/` | read/write | Local ASR client and protocol |
-| `packages/translator/` | read/write | Translator client code |
-| `packages/subtitle/` | read/write | Subtitle state and timing |
-
-### Markdown documents
-
-Agents may read:
-
-- `AGENTS.md`
-- `AGENTS-2.md`
-- `AGENTS-3.md`
-- `target.md`
-- `implementation.md`
-
-Agents must not modify them unless the user explicitly asks to update project specs.
-
-### Forbidden file operations
-
-- Do not place runtime UI logic in `packages/shared`.
-- Do not move `anime-whisper` runtime implementation into repository-local product logic.
-- Do not restore Chrome-extension runtime code as a primary delivery path.
-- Do not place translator logic inside the overlay window module.
-
----
-
-## 6. Validation Commands
-
-Use the available commands. If a command does not exist yet, state that clearly.
+在 WSL 的仓库根目录使用：
 
 ```bash
-# repository-wide
-pnpm install
-pnpm build
-pnpm typecheck
-pnpm lint
-pnpm test
-
-# web demo validation tool
-pnpm --filter web-demo dev
-pnpm --filter web-demo build
-
-# shared/core packages
-pnpm --filter shared build
-pnpm --filter core test
-
-# translator package
-pnpm --filter translator test
-
-# ASR package
-pnpm --filter asr-local test
+bash scripts/check.sh
 ```
 
-If the repository later adds Python-native commands, prefer the actual project scripts over inventing new ones.
+该命令安装锁定的开发依赖并运行 pytest、Ruff、Pyright 和仓库安全检查。不要为运行这些检查而在 Windows 物理机安装 Python。
 
----
+WSL 可以开发和测试平台无关的 Python、协议、mock、翻译和控制逻辑。WASAPI、Windows ACL、Qt 桌面交互和 PyInstaller Windows 产物必须在 Windows 环境验证。不要从 Linux 交叉编译或冒充已验证的 Windows EXE。
 
-## 7. Phase Checklists
+### 5.2 Windows CI 和目标机
 
-### Phase 0 — Python Infrastructure
+Windows GitHub Actions runner 是发布构建环境。它必须从锁文件安装依赖，重新运行测试、Ruff、Pyright 和安全检查，构建 onedir 包，检查必需 DLL、Qt platform plugin、CA bundle 和敏感文件，再执行冻结 EXE 的 `--self-test`。
 
-Before reporting complete:
+目标 Windows 设备只下载 CI 产物、校验 SHA-256、解压、运行 `configure.ps1`、填写本地配置并启动 EXE。目标机没有源码和 Python 环境是正常状态。
 
-- [ ] Main local product structure exists
-- [ ] Python project configuration exists
-- [ ] Shared type or event definitions exist where required
-- [ ] `pnpm build` or equivalent validation passes for remaining repo-owned tooling
+### 5.3 GPU 门槛
 
-### Phase 1 — Mock Pipeline + File Validation
+开始 `asr-service/`、Dolphin、CUDA、VAD 或 GPU Compose 工作前，必须在目标 WSL2 设备确认 Docker 容器能看到 NVIDIA GPU。没有这个条件时，可以继续客户端、合同、文档和 CI 工作，但不要下载模型、创建假的模型适配器、提交空 Dockerfile，或声称 Dolphin、Docker GPU、8GB 显存已经验证。
 
-Before reporting complete:
+只有真实运行过相应命令，才能报告以下项目已验证：WSL2 GPU passthrough、Dolphin 加载、模型缓存、RTF、显存、延迟、长时间稳定性和游戏并行运行。
 
-- [ ] Mock ASR covers `ja`
-- [ ] Mock translation covers `zh-CN`
-- [ ] Core pipeline uses dependency injection
-- [ ] File-based validation can run end-to-end
-- [ ] No API key is needed for mock mode
-- [ ] No network dependency exists in mock mode
+## 6. 音频和 ASR 合同
 
-### Phase 2 — OpenAI-compatible Translator
+Windows 客户端发出的音频固定为：
 
-Before reporting complete:
+| 字段 | 值 |
+| --- | --- |
+| sample rate | `16000` |
+| channels | `1` |
+| encoding | `pcm_s16le` |
+| chunk duration | `100 ms` |
+| chunk size | `3200 bytes` |
+| language | `ja` |
 
-- [ ] OpenAI-compatible translator implements the required translator interface
-- [ ] Prompt logic is centralized
-- [ ] User can supply Provider, API Key, and Model Name through the local CLI configuration flow
-- [ ] API key is not hardcoded or logged
-- [ ] Network failures return readable UI errors
-- [ ] Translation supports only `zh-CN`
+WASAPI 回调只把原始数据放入有界队列。重采样、WebSocket I/O 和日志不得阻塞回调线程。停止采集时必须排空已捕获的原始块和重采样尾帧，再发送 `stream.stop`。
 
-### Phase 3 — anime-whisper Client + File Input
+默认地址为 `ws://127.0.0.1:9000/v1/asr` 和 `http://127.0.0.1:9000/ready`。ASR URL 只允许 loopback。共享 JSON Schema 和示例位于 `contracts/`，修改协议时必须同时更新模型、解析器、示例、Schema 和合同测试。
 
-Before reporting complete:
+协议规则：
 
-- [ ] Real local ASR integration targets `anime-whisper`
-- [ ] Source language parameter is fixed to `ja`
-- [ ] File-based validation works with the real runtime client shape
-- [ ] Mock and real runtime-client paths are interchangeable at the orchestration boundary
-- [ ] Manual real-runtime verification is performed only in an ASR-capable environment
+- 客户端先发送 `stream.start`，收到 `stream.ready` 后才发二进制音频帧。
+- 每个服务事件都有非空 `session_id`。
+- `transcript.final.seq` 在单个 session 内严格递增。
+- 客户端忽略其他 session、重复 seq 和倒退 seq。
+- 接收协程与发送路径独立，生命周期确认不能被业务事件队列阻塞。
+- 不定义 partial。
+- `stream.stop` 不等于连接关闭。客户端等待 `stream.stopped` 或明确超时。
+- `runtime.overloaded` 和本地队列丢弃必须可观察。
+- `error` 使用稳定错误码和可读说明，不把容器 traceback 发给 UI。
 
-### Phase 4 — Local Overlay Window
+## 7. Python 责任边界
 
-Before reporting complete:
+本轮重构重新评估后，当前实现继续使用以下薄 Protocol。它们用于隔离硬件、网络和 UI，方便在 WSL 与 CI 中做确定性测试，不是为多 provider 或跨 checkout 设计的插件框架。名称和签名可以重构，但这些责任不能重新耦合：
 
-- [ ] Local overlay window opens
-- [ ] Latest subtitle can render
-- [ ] Optional source text can render
-- [ ] Basic wrapping works
-- [ ] Hide and cleanup behavior works
+```python
+class AudioSource(Protocol):
+    def start(self) -> None: ...
+    def read_chunk(self) -> AudioChunk | None: ...
+    def stop(self) -> None: ...
+    def snapshot_stats(self) -> AudioSourceStats: ...
 
-### Phase 5 — Live Audio Input
+class AsrClient(Protocol):
+    async def probe_ready(self) -> bool: ...
+    async def connect(self) -> None: ...
+    async def start_stream(self, request: StartStream) -> None: ...
+    async def send_audio(self, chunk: AudioChunk) -> None: ...
+    def events(self) -> AsyncIterator[AsrEvent]: ...
+    async def stop_stream(self) -> None: ...
+    async def close(self) -> None: ...
 
-Before reporting complete:
+class TranslatorClient(Protocol):
+    async def translate(self, request: TranslationRequest) -> TranslationResult: ...
+    async def close(self) -> None: ...
 
-- [ ] Live audio input reaches the runtime client boundary
-- [ ] User can still hear audio if the chosen capture strategy requires passthrough
-- [ ] Debug logs confirm audio event flow
-- [ ] Audio input failures surface readable errors
+class SubtitleSink(Protocol):
+    def set_state(self, state: SubtitleState) -> None: ...
+    def clear(self) -> None: ...
+```
 
-### Phase 6 — Full Local CLI Loop
+`AsrClient` 不得导入 Dolphin、Torch、Docker SDK 或 WSL 模块。会话控制器只依赖职责接口和配置对象。GUI 线程不执行音频处理、WebSocket I/O 或 HTTP 请求。不要提前增加 provider 插件或模型 backend 抽象。
 
-Before reporting complete:
+## 8. 翻译和密钥安全
 
-- [ ] CLI can start a session
-- [ ] Live audio reaches the local `anime-whisper` runtime
-- [ ] Final ASR output reaches translator
-- [ ] Latest translated subtitle reaches the local overlay window
-- [ ] Stop releases resources
-- [ ] No cloud ASR is required
+翻译使用完整可配置 endpoint，契约为 Anthropic Messages API：
 
----
+```http
+content-type: application/json
+x-api-key: {api_key}
+anthropic-version: 2023-06-01
+```
 
-## 8. Blocker Protocol
+请求体使用顶层 `system` 和 `messages`，响应拼接所有 `type == "text"` 的 content block。不使用 OpenAI Chat Completions，不做 token streaming，不为修复格式自动重试。
 
-Stop and ask the user when any of the following occurs:
+远程翻译 endpoint 必须使用 HTTPS。HTTP 只允许 loopback mock。禁止重定向和环境代理。翻译失败时保留日文 final，并继续处理后续 ASR 事件。
 
-1. The request conflicts with `target.md`.
-2. The request requires adding a deferred feature.
-3. Runtime choice requires a major architecture tradeoff.
-4. Shared type definitions need breaking changes.
-5. Pipeline or controller interfaces need breaking changes.
-6. A validation command fails more than three times.
-7. A required dependency is no longer maintained or cannot run in the target runtime environment.
-8. A task requires real Docker/WSL2/`anime-whisper` runtime work that violates the active environment constraint file (`AGENTS-2.md` or `AGENTS-3.md`).
-9. A requested change requires modifying `AGENTS.md`, `AGENTS-2.md`, `AGENTS-3.md`, `target.md`, or `implementation.md`.
+API key 的唯一持久位置是 `%LOCALAPPDATA%\LiveTranslator\.env`。`configure.ps1` 必须收紧该文件 ACL。真实 key 不得进入 Git、TOML、命令行、WSL、Compose、容器、构建产物、日志、异常文本或字幕。日志写入 `%LOCALAPPDATA%\LiveTranslator\logs`，使用轮转和密钥遮蔽，不记录请求 header 或 body。
 
-Use this format:
+示例 endpoint、模型名和 `replace-me` key 必须在发出请求前被配置加载器拒绝。
+
+## 9. 发布和 CI
+
+Windows 客户端只能在 Windows runner 上打包。固定产物是 `LiveTranslator-windows-x64.zip` 和对应 `.sha256` 文件。不要提交 `dist/`、`artifacts/`、虚拟环境或构建缓存。
+
+发布检查至少包括：
+
+- `LiveTranslator.exe`、`qwindows.dll`、PyAudioWPatch、soxr 和 certifi CA bundle 存在。
+- 产物不含 `.env`、`config.toml`、私钥、证书私钥或模型文件。
+- CA bundle 是唯一允许的 PEM，且只含证书。
+- 冻结 EXE 的 `--self-test` 通过。
+- GitHub Actions 使用完整 commit SHA 固定第三方 action，并禁用 checkout 凭据持久化。
+
+## 10. 编码和审查
+
+- 主产品只使用 Python。
+- 使用类型标注、dataclass 或小型不可变模型表达协议和状态。
+- 队列必须有界，满队列时产生可观察状态。
+- 超时、取消、断线、重复 stop 和资源清理必须有确定行为。
+- UI 只显示稳定消息。技术 traceback 只进脱敏诊断日志。
+- 外部服务和硬件路径必须有确定性的 fake、合同测试和失败路径测试。
+- 测试不得需要真实 API key 或外部网络。
+- 修改应小而明确，不为了目录完整度加入未验证框架。
+
+完成大型改造或准备推送前，逐个审查 `Transfer/` 之外的源码、测试、脚本、workflow 和配置。检查安全边界、停止路径、资源释放、线程边界、队列满、协议拒绝路径、平台条件和文档真实性。审查结论必须进入完成报告。
+
+## 11. 验证和报告
+
+WSL 基线命令是：
+
+```bash
+bash scripts/check.sh
+```
+
+Windows CI 还必须运行 `windows-client/packaging/build.ps1`。PowerShell 脚本改动后至少做语法解析；只有 Windows 构建和冻结 self-test 实际通过，才能报告发布包已验证。
+
+每次完成报告使用：
 
 ```text
-[BLOCKED]
-Problem:
-What I tried:
-Decision needed:
+Changed:
+- files or areas
+
+Verified:
+- exact command and result
+
+Reviewed:
+- reviewed scope and findings
+
+Not verified here:
+- platform, GPU, Docker, real API, or interactive checks not actually run
+
+Next:
+- remaining in-scope work
 ```
 
----
-
-## 9. Forbidden Behaviors
-
-Never:
-
-- Hardcode a real API key
-- Print a user API key
-- Add unsupported languages
-- Implement deferred V2 features in this repository scope
-- Add a glossary feature in MVP
-- Add cloud ASR in MVP
-- Restore browser-extension delivery as the primary product path
-- Bypass provider or client interfaces
-- Put ASR or translation logic inside the overlay window
-- Claim success without validation
-- Modify project spec documents without explicit instruction
-- Claim real local-ASR validation from this machine
-
----
-
-## 10. Required Completion Report
-
-Every task completion must include:
-
-```text
-Changed files:
-- ...
-
-Implemented:
-- ...
-
-Validation:
-- Command: ...
-- Result: ...
-
-Notes / Remaining work:
-- ...
-```
-
-Do not claim that live runtime behavior was verified unless it was actually tested.
-
----
-
-## 11. Web Demo Policy
-
-The web demo remains in the repository only as a development and validation tool.
-
-Rules:
-
-1. It is not the final product form.
-2. It must remain fixed to `ja -> zh-CN`.
-3. It must support file-based validation.
-4. It must not redefine the main product architecture.
-
-## 12. V2 Deferral Rule
-
-The following ideas are explicitly deferred to V2 and must not be implemented in the current MVP:
-
-- LLM correction before translation
-- Terminology / glossary injection
-- Incremental subtitle updates
-- Formal bilingual subtitle mode
-- Rolling subtitle history
-- Advanced multi-line subtitle layout modes
-
-Current MVP subtitle behavior remains:
-
-- `ja -> zh-CN` only
-- `anime-whisper` as the real local-ASR target
-- final transcript only
-- latest single subtitle only
+没有真实证据时，不使用“ASR 已验证”“Docker 可运行”“8GB 显存达标”“Windows 发布包可用”等表述。

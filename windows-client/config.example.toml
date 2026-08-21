@@ -1,0 +1,20 @@
+# configure.ps1 copies this template to %LOCALAPPDATA%\LiveTranslator\config.toml.
+# Keep production configuration and API credentials out of the source checkout.
+[asr]
+# The Windows client accepts loopback ASR endpoints only.
+ws_url = "ws://127.0.0.1:9000/v1/asr"
+ready_url = "http://127.0.0.1:9000/ready"
+connect_timeout_s = 5.0
+stop_timeout_s = 5.0
+
+[translation]
+# Replace both placeholders. Remote endpoints must use HTTPS.
+endpoint = "https://provider.invalid/v1/messages"
+model = "replace-with-your-model"
+anthropic_version = "2023-06-01"
+max_tokens = 256
+timeout_s = 4.0
+
+[audio]
+# Leave device_index commented to use the default WASAPI loopback device.
+# device_index = 0

@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://live-translator.local/contracts/asr-v1.schema.json",
+  "title": "Live Translator ASR WebSocket v1 control message",
+  "oneOf": [
+    { "$ref": "#/$defs/streamStart" },
+    { "$ref": "#/$defs/streamStop" },
+    { "$ref": "#/$defs/streamReady" },
+    { "$ref": "#/$defs/transcriptFinal" },
+    { "$ref": "#/$defs/runtimeOverloaded" },
+    { "$ref": "#/$defs/streamStopped" },
+    { "$ref": "#/$defs/error" }
+  ],
+  "$defs": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": ".*\\S.*"
+    },
+    "streamStart": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "session_id", "sample_rate", "channels", "encoding", "language"],
+      "properties": {
+        "type": { "const": "stream.start" },
+        "session_id": { "$ref": "#/$defs/sessionId" },
+        "sample_rate": { "const": 16000 },
+        "channels": { "const": 1 },
+        "encoding": { "const": "pcm_s16le" },
+        "language": { "const": "ja" }
+      }
+    },
+    "streamStop": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "session_id"],
+      "properties": {
+        "type": { "const": "stream.stop" },
+        "session_id": { "$ref": "#/$defs/sessionId" }
+      }
+    },
+    "streamReady": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "session_id"],
+      "properties": {
+        "type": { "const": "stream.ready" },
+        "session_id": { "$ref": "#/$defs/sessionId" }
+      }
+    },
+    "transcriptFinal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "session_id",
+        "seq",
+        "text",
+        "audio_start_ms",
+        "audio_end_ms",
+        "decode_ms"
+      ],
+      "properties": {
+        "type": { "const": "transcript.final" },
+        "session_id": { "$ref": "#/$defs/sessionId" },
+        "seq": { "type": "integer", "minimum": 1 },
+        "text": { "type": "string", "minLength": 1, "pattern": ".*\\S.*" },
+        "audio_start_ms": { "type": "integer", "minimum": 0 },
+        "audio_end_ms": { "type": "integer", "minimum": 0 },
+        "decode_ms": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "runtimeOverloaded": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "session_id", "dropped_audio_ms"],
+      "properties": {
+        "type": { "const": "runtime.overloaded" },
+        "session_id": { "$ref": "#/$defs/sessionId" },
+        "dropped_audio_ms": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "streamStopped": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "session_id"],
+      "properties": {
+        "type": { "const": "stream.stopped" },
+        "session_id": { "$ref": "#/$defs/sessionId" }
+      }
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "session_id", "code", "message", "retryable"],
+      "properties": {
+        "type": { "const": "error" },
+        "session_id": { "$ref": "#/$defs/sessionId" },
+        "code": { "type": "string", "minLength": 1, "pattern": ".*\\S.*" },
+        "message": { "type": "string", "minLength": 1, "pattern": ".*\\S.*" },
+        "retryable": { "type": "boolean" }
+      }
+    }
+  }
+}
